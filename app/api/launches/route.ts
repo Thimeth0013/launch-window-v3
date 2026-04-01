@@ -50,27 +50,36 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '30', 10);
     const provider = searchParams.get('provider'); // Optional filter by provider
+    const includeCompleted = searchParams.get('includeCompleted') === 'true'; // New param
     
-    // Define how long a launch stays visible after T-0 (e.g., 6 hours)
-    const GRACE_PERIOD = 6 * 60 * 60 * 1000; 
-    const displayThreshold = new Date(now.getTime() - GRACE_PERIOD);
-
-    // Build query
-    const query: any = {
-      date: { $gte: displayThreshold } // Now includes launches from the last 6 hours
-    };
+    // Define time ranges
+    const GRACE_PERIOD = 6 * 60 * 60 * 1000; // 6 hours
+    const LOOKBACK_PERIOD = 30 * 24 * 60 * 60 * 1000; // 30 days for completed launches
+    
+    // Build query based on includeCompleted flag
+    const query: any = {};
+    
+    if (includeCompleted) {
+      // Show launches from the last 30 days (including completed ones)
+      const lookbackThreshold = new Date(now.getTime() - LOOKBACK_PERIOD);
+      query.date = { $gte: lookbackThreshold };
+    } else {
+      // Show only upcoming launches (with 6-hour grace period)
+      const displayThreshold = new Date(now.getTime() - GRACE_PERIOD);
+      query.date = { $gte: displayThreshold };
+    }
     
     if (provider) {
       query.provider = provider;
     }
     
     const launches = await Launch.find(query)
-      .sort({ date: 1 })
+      .sort({ date: includeCompleted ? -1 : 1 }) // Descending for completed, ascending for upcoming
       .limit(Math.min(limit, 100)) // Cap at 100 for safety
       .select('-_id') // Exclude MongoDB _id field
       .lean(); // Use lean() for better performance
     
-    console.log(`✅ [LAUNCHES] Returning ${launches.length} launches`);
+    console.log(`✅ [LAUNCHES] Returning ${launches.length} launches (includeCompleted: ${includeCompleted})`);
 
     // Return simple array for easier consumption
     return NextResponse.json(launches, {

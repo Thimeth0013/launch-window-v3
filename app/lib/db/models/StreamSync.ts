@@ -7,17 +7,41 @@ const streamSyncSchema = new Schema({
     required: true, 
     unique: true 
   },
-  lastChecked: { 
+  lastUpdated: { 
     type: Date, 
     default: Date.now 
-  }
+  },
+  streams: [{
+    streamId: String,
+    url: String,
+    title: String,
+    channelName: String,
+    thumbnailUrl: String,
+    scheduledStartTime: Date,
+    platform: String,
+    matchScore: Number,
+    lastUpdated: Date
+  }]
 }, {
   timestamps: true
 });
 
+export interface IStream {
+  streamId: string;
+  url: string;
+  title: string;
+  channelName: string;
+  thumbnailUrl: string;
+  scheduledStartTime: Date;
+  platform: string;
+  matchScore: number;
+  lastUpdated: Date;
+}
+
 export interface IStreamSync extends mongoose.Document {
   launchId: string;
-  lastChecked: Date;
+  lastUpdated: Date;
+  streams: IStream[];
 }
 
 const StreamSync: Model<IStreamSync> = 

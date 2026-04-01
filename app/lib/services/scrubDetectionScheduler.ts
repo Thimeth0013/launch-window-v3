@@ -8,7 +8,7 @@ export async function checkForScrub(launch: any) {
   try {
     console.log(`🔍 [SCRUB_CHECK] Checking for updates on ${launch.name}`);
     
-    // Fetch fresh data from API for this specific launch
+    // Fetch fresh data from API for this specific launch (API uses id, not slug)
     const response = await axios.get(
       `${LAUNCH_LIBRARY_API}/launches/${launch.id}/`,
       { 
@@ -35,9 +35,9 @@ export async function checkForScrub(launch: any) {
         newStatus: freshData.status?.name
       });
 
-      // Update database with fresh data
+      // Update database using slug for query
       await Launch.findOneAndUpdate(
-        { id: launch.id },
+        { slug: launch.slug },
         {
           ...freshData,
           date: new Date(freshData.net),

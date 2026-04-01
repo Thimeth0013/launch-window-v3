@@ -7,6 +7,7 @@ const LAUNCH_LIBRARY_API = 'https://ll.thespacedevs.com/2.3.0';
 
 interface ApiLaunch {
   id: string;
+  slug: string;
   name: string;
   net: string;
   status: {
@@ -87,7 +88,7 @@ export const fetchUpcomingLaunches = async () => {
           }
         }
 
-        // Store FULL detailed data
+        // Store FULL detailed data (includes slug from API)
         await Launch.findOneAndUpdate(
           { id: apiLaunch.id },
           {
@@ -102,7 +103,7 @@ export const fetchUpcomingLaunches = async () => {
           { upsert: true, new: true }
         );
         
-        console.log(`✅ [SAVED] ${apiLaunch.name}`);
+        console.log(`✅ [SAVED] ${apiLaunch.name} (slug: ${apiLaunch.slug})`);
       } catch (error: any) {
         console.error(`❌ [ERROR] Failed to save launch ${apiLaunch.id}: ${error.message}`);
       }
@@ -130,12 +131,12 @@ export const getUpcomingLaunches = async (limit = 30) => {
 };
 
 export const getLaunchById = async (slug: string) => {
-  console.log(`🔍 [QUERY] Searching for launch with ID: ${slug}`);
+  console.log(`🔍 [QUERY] Searching for launch with slug: ${slug}`);
   
   const launch = await Launch.findOne({ slug }).lean();
   
   if (!launch) {
-    console.log(`❌ [NOT_FOUND] No launch found with ID: ${slug}`);
+    console.log(`❌ [NOT_FOUND] No launch found with slug: ${slug}`);
   } else {
     console.log(`✅ [FOUND] Launch "${launch.name}" retrieved successfully`);
   }

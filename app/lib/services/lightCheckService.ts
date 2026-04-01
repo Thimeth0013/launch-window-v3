@@ -66,7 +66,7 @@ export function shouldSync(launch: any): boolean {
   }
 }
 
-// Light check: Use list mode to check for updates
+// Light check: Use list mode to check for updates (API uses id)
 async function performLightCheck(launchId: string): Promise<{ hasChanges: boolean; lastUpdated: string | null }> {
   if (!canMakeApiCall()) {
     console.log('⚠️ [RATE_LIMIT] Skipping light check - limit reached');
@@ -93,7 +93,7 @@ async function performLightCheck(launchId: string): Promise<{ hasChanges: boolea
   }
 }
 
-// Heavy fetch: Get full detailed data
+// Heavy fetch: Get full detailed data (API uses id)
 async function performDetailedFetch(launchId: string): Promise<any | null> {
   if (!canMakeApiCall()) {
     console.log('⚠️ [RATE_LIMIT] Skipping detailed fetch - limit reached');
@@ -121,7 +121,7 @@ async function performDetailedFetch(launchId: string): Promise<any | null> {
 export async function syncLaunch(launch: any): Promise<any> {
   console.log(`🔍 [SYNC_CHECK] Checking ${launch.name}`);
 
-  // Step 1: Perform light check
+  // Step 1: Perform light check (API uses id)
   const lightCheck = await performLightCheck(launch.id);
 
   if (!lightCheck.lastUpdated) {
@@ -138,7 +138,7 @@ export async function syncLaunch(launch: any): Promise<any> {
     return launch;
   }
 
-  // Step 3: Timestamp changed - fetch detailed data
+  // Step 3: Timestamp changed - fetch detailed data (API uses id)
   console.log(`🔄 [CHANGES_DETECTED] ${launch.name} needs update`);
   const detailedData = await performDetailedFetch(launch.id);
 
@@ -147,10 +147,10 @@ export async function syncLaunch(launch: any): Promise<any> {
     return launch;
   }
 
-  // Step 4: Update database
+  // Step 4: Update database using slug
   try {
     const updatedLaunch = await Launch.findOneAndUpdate(
-      { id: launch.id },
+      { slug: launch.slug },
       {
         ...detailedData,
         date: new Date(detailedData.net),
