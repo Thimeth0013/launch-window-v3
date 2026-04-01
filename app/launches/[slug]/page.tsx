@@ -11,7 +11,7 @@ import WeatherConditions from '@/components/ui/WeatherConditions';
 import MissionStatistics from '@/components/ui/MissionStatistics';
 import ProgramBadge from '@/components/ui/ProgramBadge';
 import StreamsSection from '@/components/sections/StreamsSection';
-import { getLaunchById } from '@/app/lib/services/launchService';
+import { getLaunchById, getUpcomingLaunches } from '@/app/lib/services/launchService';
 import { notFound } from 'next/navigation';
 
 // 2. Set route revalidation (replaces the fetch revalidate option)
@@ -22,18 +22,21 @@ interface LaunchDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
-// 4. Bypasses API route completely to fix Vercel build errors
-async function getLaunch(slug: string) {
-  const launch = await getLaunchById(slug);
+export async function generateStaticParams() {
+  // Fetch the upcoming launches during build time
+  const launches = await getUpcomingLaunches(50);
   
-  if (!launch) {
-    notFound(); // Cleanly shows 404 page if slug isn't found
-  }
-  
-  // Serialize the Mongoose document to plain JSON for Client Components
-  return JSON.parse(JSON.stringify(launch));
+  // Tell Next.js to pre-build a static HTML page for every slug in the database
+  return launches.map((launch) => ({
+    slug: launch.slug,
+  }));
 }
 
+async function getLaunch(slug: string) {
+  const launch = await getLaunchById(slug);
+  if (!launch) notFound();
+  return JSON.parse(JSON.stringify(launch));
+}
 export default async function LaunchDetailPage({ params }: LaunchDetailPageProps) {
   // 5. Await the params before extracting the slug
   const { slug } = await params;
