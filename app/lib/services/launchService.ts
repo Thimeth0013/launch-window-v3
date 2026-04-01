@@ -1,5 +1,6 @@
 // lib/services/launchService.ts
 import axios from 'axios';
+import connectDB from '../db/mongodb';
 import Launch from '../db/models/Launch';
 import StreamSync from '../db/models/StreamSync';
 
@@ -54,6 +55,8 @@ const fetchWithRetry = async (url: string, config: any, maxRetries = 3) => {
 
 export const fetchUpcomingLaunches = async () => {
   try {
+    await connectDB();
+
     console.log('📡 [SYNC] Fetching launches from API v2.3.0 (detailed mode)...');
     
     const response = await fetchWithRetry(
@@ -118,6 +121,8 @@ export const fetchUpcomingLaunches = async () => {
 };
 
 export const getUpcomingLaunches = async (limit = 30) => {
+  await connectDB();
+  
   const now = new Date();
   const launches = await Launch.find({
     date: { $gte: now }

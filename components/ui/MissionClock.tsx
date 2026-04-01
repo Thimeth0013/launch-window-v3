@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react';
 import { useServerTime } from '../../app/lib/hooks/useServerTime';
 import { AlertTriangle, Activity } from 'lucide-react';
 
+// UPDATED INTERFACE: Matches the MongoDB schema exactly
 interface MissionClockProps {
   launchDate: Date;
   status: {
+    id?: number;
     name: string;
     abbrev: string;
+    description?: string;
   };
   updates?: Array<{
     id: number;
@@ -107,30 +110,30 @@ export default function MissionClock({ launchDate, status, updates }: MissionClo
         )}
       </div>
 
-      {/* TIME UNITS GRID - Centered wrapper */}
-      <div className="flex items-center justify-center gap-4 md:gap-8">
+      {/* 2. UPDATED LAYOUT: Time units grid with inline prefix */}
+      <div className="flex items-start justify-center gap-2 md:gap-4 lg:gap-6">
         
-        {/* The Prefix - Now vertically aligned with the numbers */}
-        <div className="flex flex-col items-center">
-            <div className={`text-2xl md:text-4xl font-black leading-none ${isHold ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+        {/* The Prefix - Now shares the exact same baseline as the numbers */}
+        <div className="flex flex-col items-center justify-start">
+            <div className={`text-2xl md:text-5xl font-bold leading-none ${isHold ? 'text-red-500 animate-pulse' : 'text-white'}`}>
               {timeLeft.prefix}
             </div>
-            {/* Empty label spacer to maintain alignment with other units */}
-            <span className="text-[9px] mt-4 opacity-0">spacer</span>
+            {/* Invisible spacer to match the height of the "Days/Hrs" labels */}
+            <span className="text-[9px] font-bold uppercase tracking-[0.4em] mt-4 opacity-0 select-none">
+              T-
+            </span>
         </div>
 
-        <div className="flex items-start gap-4 md:gap-6">
-          <TimeUnit value={timeLeft.d} label="Days" isHold={isHold} />
-          <div className="text-2xl md:text-4xl font-bold text-[#18BBF7] self-start mt-2 animate-pulse">:</div>
-          
-          <TimeUnit value={timeLeft.h} label="Hrs" isHold={isHold} />
-          <div className="text-2xl md:text-4xl font-bold text-[#18BBF7] self-start mt-2 animate-pulse">:</div>
-          
-          <TimeUnit value={timeLeft.m} label="Min" isHold={isHold} />
-          <div className="text-2xl md:text-4xl font-bold text-[#18BBF7] self-start mt-2 animate-pulse">:</div>
-          
-          <TimeUnit value={timeLeft.s} label="Sec" isHold={isHold} />
-        </div>
+        <TimeUnit value={timeLeft.d} label="Days" isHold={isHold} />
+        <div className={`text-2xl md:text-5xl sleading-none self-start mt-2 animate-pulse ${isHold ? 'text-red-900/50' : 'text-[#18BBF7]/80'}`}>:</div>
+        
+        <TimeUnit value={timeLeft.h} label="Hrs" isHold={isHold} />
+        <div className={`text-2xl md:text-5xl leading-none self-start mt-2 animate-pulse ${isHold ? 'text-red-900/50' : 'text-[#18BBF7]/80'}`}>:</div>
+        
+        <TimeUnit value={timeLeft.m} label="Min" isHold={isHold} />
+        <div className={`text-2xl md:text-5xl leading-none self-start mt-2 animate-pulse ${isHold ? 'text-red-900/50' : 'text-[#18BBF7]/80'}`}>:</div>
+        
+        <TimeUnit value={timeLeft.s} label="Sec" isHold={isHold} />
       </div>
     </div>
   );
@@ -138,14 +141,14 @@ export default function MissionClock({ launchDate, status, updates }: MissionClo
 
 function TimeUnit({ value, label, isHold }: { value: string, label: string, isHold: boolean }) {
   return (
-    <div className="flex flex-col items-center min-w-15 md:min-w-20">
+    <div className="flex flex-col items-center min-w-12 md:min-w-18">
       <span className={`
         font-mono text-2xl md:text-5xl font-bold tracking-tighter leading-none tabular-nums
         ${isHold ? 'text-red-900/50' : 'text-white'}
       `}>
         {value}
       </span>
-      <span className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-400 mt-4 text-center">
+      <span className="text-[9px] font-bold uppercase tracking-[0.4em] text-gray-400 mt-4 text-center">
         {label}
       </span>
     </div>

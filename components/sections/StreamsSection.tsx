@@ -40,7 +40,7 @@ export default function StreamsSection({ launchSlug }: { launchSlug: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8 border border-white/5 bg-white/5 animate-pulse mt-12 w-full max-w-2xl">
+      <div className="flex items-center justify-center p-8 border border-white/5 bg-white/5 animate-pulse mt-12 w-full">
         <MonitorPlay className="w-5 h-5 text-gray-500 mr-3 animate-bounce" />
         <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Searching for Broadcasts...</span>
       </div>
@@ -54,13 +54,13 @@ export default function StreamsSection({ launchSlug }: { launchSlug: string }) {
   return (
     <section className="mt-12 space-y-6">
       <div className="flex items-center gap-4 mb-8">
-        <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-[#FF0000] flex items-center gap-2">
+        <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-[#FF0000]/80 flex items-center gap-2">
           <Youtube className="w-4 h-4" /> Live Broadcasts
         </h3>
         <div className="h-px flex-1 bg-white/10" />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         {streams.map((stream) => (
           <a
             key={stream.streamId}

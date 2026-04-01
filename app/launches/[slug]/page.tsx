@@ -83,7 +83,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
 
         <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6">
 
-          <h1 className="max-w-full md:max-w-5xl text-4xl md:text-6xl font-black uppercase tracking-tighter text-white mb-4 leading-tight md:leading-16 drop-shadow-lg">
+          <h1 className="max-w-full md:max-w-5xl text-4xl md:text-6xl font-bold uppercase tracking-tight text-white mb-4 leading-tight md:leading-16 drop-shadow-lg">
             {launch.name}
           </h1>
 
@@ -130,7 +130,6 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
         )}
       </div>
 
-
       <div className="max-w-8xl mx-auto px-6 md:px-12 py-8 md:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
 
@@ -146,9 +145,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
               <p className="text-md md:text-lg font-light leading-relaxed text-zinc-400 uppercase tracking-tight">
                 {launch.mission?.description || "No mission description provided for this flight trajectory."}
               </p>
-            </section>
-            
-            <StreamsSection launchSlug={launch.slug} />
+            </section>            
           </div>
 
           {/* RIGHT SIDEBAR - TECHNICAL SPECS */}
@@ -222,8 +219,20 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
             {launch.pad && <LaunchLocationCard pad={launch.pad} />}
           </div>
         </div>
-      </div>
+        
+        <div id="streams-section">
+          <StreamsSection launchSlug={launch.slug} />
+        </div>
 
+        <a
+          href="#streams-section"
+          className="fixed bottom-8 right-6 z-50 inline-flex items-center gap-2  bg-black/20 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/80 hover:bg-[#FF0000]/40 border border-white/10"
+          title="Go to Streams"
+        >
+          ↓ Live Broadcasts
+        </a>
+
+      </div>
     </div>
   );
 }

@@ -64,7 +64,7 @@ const LaunchCard = ({ launch, streamCount = 0 }: LaunchCardProps) => {
       className="block group h-full"
     >
       <div 
-        className="bg-transparent backdrop-blur-xs border-2 overflow-hidden transition-all duration-300 h-full flex flex-col border-[#18BBF7]/40 hover:border-[#18BBF7]" 
+        className="bg-black/90 backdrop-blur-xs border-2 overflow-hidden transition-all duration-300 h-full flex flex-col border-[#18BBF7]/40 hover:border-[#18BBF7]" 
       >
         {launch.image?.image_url && (
           <div className="relative overflow-hidden">

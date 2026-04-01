@@ -257,21 +257,80 @@ LaunchSchema.index({ provider: 1 });
 // Interface for TypeScript
 export interface ILaunch extends mongoose.Document {
   id: string;
+  url?: string;
   name: string;
-  date: Date;
+  response_mode?: string;
+  slug: string;
+  launch_designator?: string;
+  
   status: {
     id: number;
     name: string;
     abbrev: string;
     description: string;
   };
+  
+  last_updated?: Date;
+  net?: Date;
+  date: Date;
+  net_precision?: {
+    id: number;
+    name: string;
+    abbrev: string;
+    description: string;
+  };
+  window_end?: Date;
+  window_start?: Date;
+  
+  image?: {
+    id?: number;
+    name?: string;
+    image_url?: string;
+    thumbnail_url?: string;
+    credit?: string;
+    license?: {
+      id: number;
+      name: string;
+      priority: number;
+      link?: string;
+    };
+    single_use?: boolean;
+    variants?: any[];
+  };
+  infographic?: string;
+  
+  probability?: number;
+  weather_concerns?: string;
+  failreason?: string;
+  hashtag?: string;
+  
   launch_service_provider?: any;
   rocket?: any;
   mission?: any;
   pad?: any;
-  image?: any;
+  
   webcast_live: boolean;
+  program?: any[];
+  
+  orbital_launch_attempt_count?: number;
+  location_launch_attempt_count?: number;
+  pad_launch_attempt_count?: number;
+  agency_launch_attempt_count?: number;
+  orbital_launch_attempt_count_year?: number;
+  location_launch_attempt_count_year?: number;
+  pad_launch_attempt_count_year?: number;
+  agency_launch_attempt_count_year?: number;
+  
+  flightclub_url?: string;
+  updates?: any[];
+  info_urls?: any[];
+  vid_urls?: any[];
+  timeline?: any[];
+  mission_patches?: any[];
+  
   provider: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 // Export model

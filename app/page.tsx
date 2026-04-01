@@ -1,31 +1,54 @@
+// app/page.tsx
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, Globe, Newspaper } from "lucide-react";
 import MissionClock from "@/components/ui/MissionClock";
+import { getUpcomingLaunches, fetchUpcomingLaunches } from "@/app/lib/services/launchService";
+import { ILaunch } from "@/app/lib/db/models/Launch";
 
-// Simulating a fetch for the next upcoming launch
-async function getLatestLaunch() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/launches?limit=1`, { next: { revalidate: 60 } });
-  const data = await res.json();
-  return data[0];
+async function getLatestLaunch(): Promise<ILaunch | null> {
+  try {
+    let launches = await getUpcomingLaunches(1);
+    
+    // 🚀 NEW: If the database is empty, trigger the sync engine!
+    if (!launches || launches.length === 0) {
+      console.log("⚠️ No launches found in DB. Triggering Space Devs API Sync...");
+      await fetchUpcomingLaunches(); 
+      
+      // Try querying the database one more time now that it's populated
+      launches = await getUpcomingLaunches(1); 
+    }
+
+    return (launches[0] as unknown as ILaunch) || null;
+  } catch (error) {
+    console.error("Failed to fetch launch for prerender:", error);
+    return null;
+  }
 }
 
 export default async function Home() {
   const latestLaunch = await getLatestLaunch();
+
+  // Early return handles the 'undefined' Date and Status TypeScript errors naturally
+  if (!latestLaunch) {
+    return (
+      <div className="min-h-screen bg-black text-[#FF6B35] font-mono flex items-center justify-center uppercase tracking-widest text-sm">
+        Terminal Offline // Awaiting Telemetry
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#FF6B35] selection:text-black">
       
       {/* 1. EPIC HERO SECTION */}
       <section className="relative h-screen w-full flex flex-col items-center justify-center overflow-hidden border-b-4 border-[#18BBF7]">
-        {/* Background Image with Cinematic Overlay */}
         <div className="absolute inset-0 z-0">
           <Image
-            src={latestLaunch?.image?.image_url || "/hero-placeholder.jpg"}
-            alt="Hero Launch"
+            src={latestLaunch.image?.image_url || "/hero-placeholder.jpg"}
+            alt={latestLaunch.name}
             fill
-            className="opacity-60"
+            className="opacity-60 object-cover"
             priority
             unoptimized
           />
@@ -33,7 +56,6 @@ export default async function Home() {
           <div className="absolute inset-0 bg-black/40 backdrop-grayscale-[0.5]" />
         </div>
 
-        {/* Content */}
         <div className="relative z-10 w-full max-w-5xl px-6 md:px-12 text-center">
           <div className="flex items-center justify-center gap-3 mb-6">
             <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[#FF6B35]">
@@ -42,19 +64,20 @@ export default async function Home() {
           </div>
 
           <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter md:leading-16 mb-16">
-            {latestLaunch?.name || "System Offline"}
+            {latestLaunch.name}
           </h1>
 
           <div className="flex flex-col items-center justify-center text-center">
+            {/* Types now match perfectly with the DB model */}
             <MissionClock 
-              launchDate={new Date(latestLaunch?.date)} 
-              status={latestLaunch?.status} 
+              launchDate={latestLaunch.date} 
+              status={latestLaunch.status} 
             />
           </div>
 
           <div className="mt-12 flex flex-wrap justify-center gap-6">
             <Link
-              href={`/launches/${latestLaunch?.slug}`}
+              href={`/launches/${latestLaunch.slug}`}
               className="group relative px-8 py-4 bg-[#18BBF7] text-black font-black uppercase tracking-widest text-xs transition-all hover:bg-white overflow-hidden"
             >
               <span className="relative z-10 flex items-center gap-2">
@@ -71,13 +94,12 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* Decorative Corner Accents */}
         <div className="absolute top-12 left-12 w-12 h-12 border-t-2 border-l-2 border-[#18BBF7]/30" />
         <div className="absolute bottom-12 right-12 w-12 h-12 border-b-2 border-r-2 border-[#18BBF7]/30" />
       </section>
 
       {/* 2. ARTICLES & INTEL SECTION */}
-      <section className="max-w-7xl mx-auto py-16 md:py-24 px-6 md:px-12">
+      <section className="max-w-7xl mx-auto py-16 md:py-24 px-6 md:px-12 opacity-40">
         <div className="flex items-end justify-between mb-12 border-b border-white/10 pb-6">
           <div>
             <div className="flex items-center gap-2 text-zinc-500 mb-2">
@@ -91,24 +113,8 @@ export default async function Home() {
           </Link>
         </div>
 
-        {/* Article Grid Placeholder */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="group cursor-pointer">
-              <div className="relative aspect-video mb-4 overflow-hidden bg-zinc-900 border border-white/5">
-                <div className="absolute inset-0 bg-[#18BBF7]/10 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
-                {/* Image Placeholder */}
-                <div className="w-full h-full bg-zinc-800 group-hover:scale-105 transition-transform duration-700" />
-              </div>
-              <span className="text-[9px] font-black text-[#FF6B35] uppercase tracking-widest mb-2 block">Category // 0{i}</span>
-              <h3 className="text-lg font-bold uppercase leading-tight group-hover:text-[#18BBF7] transition-colors">
-                Advancing the frontier: The next generation of heavy lift vehicles
-              </h3>
-              <p className="text-zinc-500 text-xs mt-3 line-clamp-2 uppercase font-mono tracking-tight">
-                Telemetric data suggests a 40% increase in payload capacity for upcoming orbital maneuvers...
-              </p>
-            </div>
-          ))}
+        <div className="flex justify-around">
+          <h1 className="text-[#18BBF7] font-bold">COMMING SOON...</h1>
         </div>
       </section>
 
