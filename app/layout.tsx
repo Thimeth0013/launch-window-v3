@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 function LoadingFallback() {
   return (
-    <div className="fixed inset-0 z-[9999] bg-black flex items-center justify-center">
+    <div className="fixed inset-0 z-9999 bg-black flex items-center justify-center">
       <div className="flex flex-col items-center gap-6">
         <div className="font-mono text-[#18BBF7] text-sm uppercase tracking-[0.5em] animate-pulse">
           Syncing Mission Telemetry

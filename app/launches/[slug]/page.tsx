@@ -1,7 +1,5 @@
-import {
-  Rocket, Clock, MapPin, Radio, ShieldCheck,
-  Users, Info, History, AlertCircle, ExternalLink, Target, Activity, ChevronLeft
-} from 'lucide-react';
+// app/launches/[slug]/page.tsx
+import { ChevronLeft} from 'lucide-react';
 import TimelineEngine from '@/components/ui/TimelineEngine';
 import MissionClock from '@/components/ui/MissionClock';
 import Link from 'next/link';
@@ -13,24 +11,31 @@ import WeatherConditions from '@/components/ui/WeatherConditions';
 import MissionStatistics from '@/components/ui/MissionStatistics';
 import ProgramBadge from '@/components/ui/ProgramBadge';
 import StreamsSection from '@/components/sections/StreamsSection';
+import { getLaunchById } from '@/app/lib/services/launchService';
+import { notFound } from 'next/navigation';
+
+// 2. Set route revalidation (replaces the fetch revalidate option)
+export const revalidate = 270;
 
 interface LaunchDetailPageProps {
+  // 3. Next.js 15 requires params to be a Promise
   params: Promise<{ slug: string }>;
 }
 
+// 4. Bypasses API route completely to fix Vercel build errors
 async function getLaunch(slug: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-
-  const res = await fetch(`${baseUrl}/api/launches/${slug}`, {
-    next: { revalidate: 270 }
-  });
-
-  if (!res.ok) throw new Error('Failed to fetch launch');
-  return res.json();
+  const launch = await getLaunchById(slug);
+  
+  if (!launch) {
+    notFound(); // Cleanly shows 404 page if slug isn't found
+  }
+  
+  // Serialize the Mongoose document to plain JSON for Client Components
+  return JSON.parse(JSON.stringify(launch));
 }
 
 export default async function LaunchDetailPage({ params }: LaunchDetailPageProps) {
+  // 5. Await the params before extracting the slug
   const { slug } = await params;
   const launch = await getLaunch(slug);
 
@@ -71,7 +76,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
               <img
                 src={launch.image.image_url}
                 alt={launch.name}
-                className="w-full h-full md:h-auto  object-cover opacity-40 md:opacity-60"
+                className="w-full h-full md:h-auto object-cover opacity-40 md:opacity-60"
               />
             </div>
 
@@ -177,7 +182,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
         </div>
 
         {/* TIMELINE */}
-        {timeline && (
+        {timeline && timeline.length > 0 && (
           <TimelineEngine
             launchDate={new Date(launch.date)}
             launchId={launch.slug}
@@ -192,7 +197,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
 
           {/* LEFT CONTENT */}
           <div className="lg:col-span-6 space-y-8 lg:space-y-12">
-            {/* VEHICLE DETAILS CARD - NEW */}
+            {/* VEHICLE DETAILS CARD */}
             {launch.rocket && <VehicleDetailsCard rocket={launch.rocket} />}
 
             {/* CREW */}
@@ -212,10 +217,10 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
               window_end={launch.window_end}
             />
 
-            {/* DESTINATION CARD - NEW */}
+            {/* DESTINATION CARD */}
             {launch.mission && <DestinationCard mission={launch.mission} />}
 
-            {/* LAUNCH LOCATION CARD - NEW */}
+            {/* LAUNCH LOCATION CARD */}
             {launch.pad && <LaunchLocationCard pad={launch.pad} />}
           </div>
         </div>
@@ -226,7 +231,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
 
         <a
           href="#streams-section"
-          className="fixed bottom-8 right-6 z-50 inline-flex items-center gap-2  bg-black/20 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/80 hover:bg-[#FF0000]/40 border border-white/10"
+          className="fixed bottom-8 right-6 z-50 inline-flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/80 hover:bg-[#FF0000]/40 border border-white/10"
           title="Go to Streams"
         >
           ↓ Live Broadcasts
