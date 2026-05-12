@@ -11,7 +11,7 @@ import WeatherConditions from '@/components/ui/WeatherConditions';
 import MissionStatistics from '@/components/ui/MissionStatistics';
 import ProgramBadge from '@/components/ui/ProgramBadge';
 import StreamsSection from '@/components/sections/StreamsSection';
-import { getLaunchById, getUpcomingLaunches } from '@/app/lib/services/launchService';
+import { ensureFreshLaunches, getLaunchById, getUpcomingLaunches } from '@/app/lib/services/launchService';
 import { notFound } from 'next/navigation';
 
 // 2. Set route revalidation (replaces the fetch revalidate option)
@@ -33,6 +33,7 @@ export async function generateStaticParams() {
 }
 
 async function getLaunch(slug: string) {
+  await ensureFreshLaunches();
   const launch = await getLaunchById(slug);
   if (!launch) notFound();
   return JSON.parse(JSON.stringify(launch));

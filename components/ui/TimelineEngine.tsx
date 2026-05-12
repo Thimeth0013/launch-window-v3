@@ -24,10 +24,10 @@ function parseRelativeTime(relativeTime: string): number | null {
   const isoDurationMatch = relativeTime.match(/^(-?)PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
   if (isoDurationMatch) {
     const [, sign, hours, minutes, seconds] = isoDurationMatch;
-    const totalMs = 
-      (parseInt(hours || '0') * 3600 + 
-       parseInt(minutes || '0') * 60 + 
-       parseFloat(seconds || '0')) * 1000;
+    const totalMs =
+      (parseInt(hours || '0') * 3600 +
+        parseInt(minutes || '0') * 60 +
+        parseFloat(seconds || '0')) * 1000;
     return sign === '-' ? -totalMs : totalMs;
   }
 
@@ -46,15 +46,15 @@ function parseRelativeTime(relativeTime: string): number | null {
 function formatRelativeTime(relativeTime: string): string {
   const timeMs = parseRelativeTime(relativeTime);
   if (timeMs === null) return relativeTime;
-  
+
   const isNegative = timeMs < 0;
   const absMs = Math.abs(timeMs);
   const hours = Math.floor(absMs / 3600000);
   const minutes = Math.floor((absMs % 3600000) / 60000);
   const seconds = Math.floor((absMs % 60000) / 1000);
-  
+
   const prefix = isNegative ? 'T-' : 'T+';
-  
+
   if (hours > 0) return `${prefix}${hours}h ${minutes}m`;
   else if (minutes > 0) return `${prefix}${minutes}m ${seconds}s`;
   else if (seconds === 0) return 'T-0 (LIFTOFF)';
@@ -119,14 +119,14 @@ export default function TimelineEngine({
 
       const active = new Set<number>();
       let activeIndex = -1;
-      
+
       timeline.forEach((event, index) => {
         const eventTime = parseRelativeTime(event.relative_time);
         if (eventTime !== null) {
           const isActive = eventTime < 0
             ? met >= eventTime - 30000 && met <= eventTime + 30000
             : met >= eventTime && met < eventTime + 30000;
-          
+
           if (isActive) {
             active.add(index);
             activeIndex = index;
@@ -134,19 +134,19 @@ export default function TimelineEngine({
         }
       });
 
-      if (active.size !== activeEvents.size || 
-          Array.from(active).some(idx => !activeEvents.has(idx))) {
+      if (active.size !== activeEvents.size ||
+        Array.from(active).some(idx => !activeEvents.has(idx))) {
         setActiveEvents(active);
-        
+
         if (activeIndex !== -1 && scrollContainerRef.current) {
           const container = scrollContainerRef.current;
-          const itemWidth = 200 + 32; 
+          const itemWidth = 200 + 32;
           const targetScroll = activeIndex * itemWidth - container.clientWidth / 2 + 100;
-          
-          const isInView = 
-            container.scrollLeft <= targetScroll && 
+
+          const isInView =
+            container.scrollLeft <= targetScroll &&
             targetScroll <= container.scrollLeft + container.clientWidth;
-          
+
           if (!isInView) {
             container.scrollTo({
               left: targetScroll,
@@ -197,11 +197,11 @@ export default function TimelineEngine({
 
   return (
     <div className="w-full bg-black border border-zinc-800/60 overflow-hidden mb-4 mt-12 relative select-none">
-      
+
       {/* Header Section */}
       <div className="relative z-10 px-6 py-6 border-b border-zinc-800/30 bg-black/95">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          
+
           {/* Title Area */}
           <div className="flex items-center gap-4">
             <div className="p-2 border border-zinc-800/20 bg-zinc-900/50">
@@ -224,26 +224,24 @@ export default function TimelineEngine({
 
           {/* Controls */}
           <div className="flex items-center gap-4 self-end md:self-auto">
-             <div className="flex items-center -space-x-px">
+            <div className="flex items-center -space-x-px">
               <button
                 onClick={() => scroll('left')}
                 disabled={!canScrollLeft}
-                className={`p-2 border border-zinc-800 transition-colors ${
-                  canScrollLeft 
-                    ? 'hover:bg-zinc-800 text-zinc-300 hover:text-white' 
-                    : 'text-zinc-700 cursor-not-allowed'
-                }`}
+                className={`p-2 border border-zinc-800 transition-colors ${canScrollLeft
+                  ? 'hover:bg-zinc-800 text-zinc-300 hover:text-white'
+                  : 'text-zinc-700 cursor-not-allowed'
+                  }`}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={() => scroll('right')}
                 disabled={!canScrollRight}
-                className={`p-2 border border-zinc-800 transition-colors ${
-                  canScrollRight 
-                    ? 'hover:bg-zinc-800 text-zinc-300 hover:text-white' 
-                    : 'text-zinc-700 cursor-not-allowed'
-                }`}
+                className={`p-2 border border-zinc-800 transition-colors ${canScrollRight
+                  ? 'hover:bg-zinc-800 text-zinc-300 hover:text-white'
+                  : 'text-zinc-700 cursor-not-allowed'
+                  }`}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -254,25 +252,25 @@ export default function TimelineEngine({
 
       {/* Timeline Scroll Area */}
       <div className="relative bg-black/50">
-        
+
         {/* Scroll Container */}
         <div
           ref={scrollContainerRef}
           className="overflow-x-auto overflow-y-hidden px-6 py-12 scroll-smooth"
-          style={{ scrollbarWidth: 'none' }} 
+          style={{ scrollbarWidth: 'none' }}
         >
           <div className="relative inline-flex min-w-full">
-            
+
             {/* The Rail */}
             <div className="absolute top-1.75 left-0 right-0 h-px bg-zinc-800" />
-            
+
             {/* Events */}
             <div className="flex gap-8 relative">
               {sortedTimeline.map((event, index) => {
                 const eventTime = parseRelativeTime(event.relative_time);
                 const isActive = activeEvents.has(index);
                 const isPast = eventTime !== null && currentMET > eventTime + 30000;
-                
+
                 return (
                   <div
                     key={index}
@@ -283,10 +281,10 @@ export default function TimelineEngine({
                       <div
                         className={`
                           w-3.5 h-3.5 border transition-all duration-300 rotate-45
-                          ${isActive 
-                            ? 'bg-[#FF6B35]  border-zinc-800' 
-                            : isPast 
-                              ? 'bg-zinc-600 border-zinc-800' 
+                          ${isActive
+                            ? 'bg-[#FF6B35]  border-zinc-800'
+                            : isPast
+                              ? 'bg-zinc-500 border-zinc-800'
                               : 'bg-black border-zinc-600'
                           }
                         `}
@@ -300,20 +298,20 @@ export default function TimelineEngine({
                     {/* Event Content Card */}
                     <div className={`
                       border-l-2 pl-4 transition-all duration-300
-                      ${isActive 
-                        ? 'border-[#FF6B35]' 
-                        : isPast 
-                          ? 'border-zinc-800' 
+                      ${isActive
+                        ? 'border-[#FF6B35]'
+                        : isPast
+                          ? 'border-zinc-800'
                           : 'border-zinc-700'
                       }
                     `}>
                       {/* Timing Badge */}
                       <div className={`
                         inline-flex items-center px-2 py-1 text-[10px] font-mono mb-2 border
-                        ${isActive 
-                          ? 'bg-[#FF6B35] text-black border-[#FF6B35] font-bold' 
+                        ${isActive
+                          ? 'bg-[#FF6B35] text-black border-[#FF6B35] font-bold'
                           : isPast
-                            ? 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                            ? 'bg-zinc-900 text-zinc-400 border-zinc-800'
                             : 'bg-black text-zinc-400 border-zinc-700'
                         }
                       `}>
@@ -347,28 +345,27 @@ export default function TimelineEngine({
       {/* Progress/Navigator Dots at Bottom */}
       <div className="px-6 md:px-12 py-3 border-t border-zinc-800/30 bg-black flex gap-px overflow-hidden">
         {sortedTimeline.map((event, index) => {
-           const isActive = activeEvents.has(index);
-           const eventTime = parseRelativeTime(event.relative_time);
-           const isPast = eventTime !== null && currentMET > eventTime + 30000;
+          const isActive = activeEvents.has(index);
+          const eventTime = parseRelativeTime(event.relative_time);
+          const isPast = eventTime !== null && currentMET > eventTime + 30000;
 
-           return (
-             <button
-                key={index}
-                onClick={() => {
-                  const container = scrollContainerRef.current;
-                  if (!container) return;
-                  const itemWidth = 200 + 32; 
-                  container.scrollTo({
-                    left: index * itemWidth - container.clientWidth / 2 + 100,
-                    behavior: 'smooth',
-                  });
-                }}
-                className={`h-1.5 flex-1 transition-all duration-300 ${
-                  isActive ? 'bg-[#FF6B35]' : isPast ? 'bg-zinc-800  hover:bg-zinc-600' : 'bg-zinc-900 hover:bg-zinc-600'
+          return (
+            <button
+              key={index}
+              onClick={() => {
+                const container = scrollContainerRef.current;
+                if (!container) return;
+                const itemWidth = 200 + 32;
+                container.scrollTo({
+                  left: index * itemWidth - container.clientWidth / 2 + 100,
+                  behavior: 'smooth',
+                });
+              }}
+              className={`h-1.5 flex-1 transition-all duration-300 ${isActive ? 'bg-[#FF6B35]' : isPast ? 'bg-zinc-600  hover:bg-zinc-200' : 'bg-zinc-900 hover:bg-zinc-600'
                 }`}
-                title={`${event.type.abbrev} - ${formatRelativeTime(event.relative_time)}`}
-             />
-           )
+              title={`${event.type.abbrev} - ${formatRelativeTime(event.relative_time)}`}
+            />
+          )
         })}
       </div>
     </div>

@@ -2,9 +2,11 @@
 import axios from 'axios';
 import connectDB from '../db/mongodb';
 import Launch from '../db/models/Launch';
+import LaunchSync from '../db/models/LaunchSync';
 import StreamSync from '../db/models/StreamSync';
 
 const LAUNCH_LIBRARY_API = 'https://ll.thespacedevs.com/2.3.0';
+const GLOBAL_SYNC_TTL_MS = 60 * 60 * 1000;
 
 interface ApiLaunch {
   id: string;
@@ -133,6 +135,31 @@ export const getUpcomingLaunches = async (limit = 30) => {
   
   console.log(`📊 [QUERY] Returning ${launches.length} upcoming launches from database`);
   return launches;
+};
+
+// Runs the hourly global sync if it's stale. Safe to call from any route or page —
+// failures are swallowed so callers can still serve whatever is in Mongo.
+export const ensureFreshLaunches = async () => {
+  await connectDB();
+  const now = new Date();
+  const globalSync = await LaunchSync.findOne({ syncId: 'GLOBAL_LAUNCH_SYNC' });
+
+  if (globalSync && now.getTime() - new Date(globalSync.lastUpdated).getTime() <= GLOBAL_SYNC_TTL_MS) {
+    return;
+  }
+
+  console.log('⏱️ [LAZY_SYNC] Global sync stale. Refreshing launch database...');
+  try {
+    await fetchUpcomingLaunches();
+    await LaunchSync.findOneAndUpdate(
+      { syncId: 'GLOBAL_LAUNCH_SYNC' },
+      { lastUpdated: now },
+      { upsert: true, new: true }
+    );
+    console.log(`✅ [SYNC_COMPLETE] Database updated at ${now.toISOString()}`);
+  } catch (syncError) {
+    console.error('⚠️ [SYNC_ERROR] Failed to sync, serving cached data:', syncError);
+  }
 };
 
 export const getLaunchById = async (slug: string) => {
