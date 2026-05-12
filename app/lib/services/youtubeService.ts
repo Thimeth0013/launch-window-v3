@@ -349,6 +349,11 @@ export const matchStreamsToSingleLaunch = async (launch: any) => {
   }));
 };
 
+// Streams almost never go up earlier than ~48h before a launch, so don't burn
+// YouTube quota on launches further out. `force=true` (e.g. user-initiated refresh)
+// bypasses this gate.
+const PROXIMITY_WINDOW_HOURS = 48;
+
 export const getOrSyncStreams = async (launch: any, force = false) => {
   // Adaptive TTL: 30 min for launches within 24 hours, 12 hours otherwise
   const now = new Date();
@@ -365,6 +370,12 @@ export const getOrSyncStreams = async (launch: any, force = false) => {
   }
 
   const targetId = launch.id || launch.slug;
+
+  if (!force && hoursUntilLaunch > PROXIMITY_WINDOW_HOURS) {
+    const existing = await StreamSync.findOne({ launchId: targetId });
+    console.log(`⏭️  [YT_SKIP] "${launch.name}" is T-${hoursUntilLaunch.toFixed(1)}h out (> ${PROXIMITY_WINDOW_HOURS}h window). Skipping fetch.`);
+    return existing?.streams || [];
+  }
 
   try {
     let syncRecord = await StreamSync.findOne({ launchId: targetId });
