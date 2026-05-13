@@ -91,7 +91,7 @@ export default async function LaunchesPage() {
             href="/"
             className="group flex items-center gap-2 bg-black/20 backdrop-blur-md border border-white/10 p-3 transition-all hover:bg-white hover:text-black"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-5 h-5 text-white/10 group-hover:text-black"/>
           </Link>
         </div>
         

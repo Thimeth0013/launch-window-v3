@@ -208,14 +208,18 @@ export default function TimelineEngine({
               <Activity className="w-4 h-4 text-[#18BBF7]" />
             </div>
             <div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#18BBF7]">
                   Mission Timeline
                 </h3>
+                <span className="relative flex w-1.5 h-1.5">
+                  <span className="absolute inline-flex w-full h-full bg-[#FF6B35] opacity-75 animate-ping" />
+                  <span className="relative inline-flex w-1.5 h-1.5 bg-[#FF6B35]" />
+                </span>
               </div>
               <div className="flex items-center gap-2 font-mono">
                 <span className="text-xs text-zinc-500 uppercase">Mission Elapsed Time:</span>
-                <span className="text-xs text-zinc-400 tracking-widest font-semibold">
+                <span className="text-xs text-zinc-300 tracking-widest font-semibold tabular-nums">
                   {formatMET(currentMET)}
                 </span>
               </div>
@@ -274,21 +278,26 @@ export default function TimelineEngine({
                 return (
                   <div
                     key={index}
-                    className="flex flex-col min-w-[200px] relative"
+                    className="flex flex-col min-w-[200px] relative group transition-transform duration-300 hover:-translate-y-0.5"
                   >
                     {/* Top Node Indicator */}
                     <div className="relative z-10 flex items-center mb-6 pl-2">
-                      <div
-                        className={`
-                          w-3.5 h-3.5 border transition-all duration-300 rotate-45
-                          ${isActive
-                            ? 'bg-[#FF6B35]  border-zinc-800'
-                            : isPast
-                              ? 'bg-zinc-500 border-zinc-800'
-                              : 'bg-black border-zinc-600'
-                          }
-                        `}
-                      />
+                      <div className="relative">
+                        {isActive && (
+                          <div className="absolute inset-0 w-3.5 h-3.5 bg-[#FF6B35] rotate-45 animate-ping opacity-60" />
+                        )}
+                        <div
+                          className={`
+                            relative w-3.5 h-3.5 border transition-all duration-500 rotate-45
+                            ${isActive
+                              ? 'bg-[#FF6B35] border-zinc-800 shadow-[0_0_12px_rgba(255,107,53,0.7)]'
+                              : isPast
+                                ? 'bg-zinc-500 border-zinc-800'
+                                : 'bg-black border-zinc-600 group-hover:border-[#18BBF7]/60'
+                            }
+                          `}
+                        />
+                      </div>
                       {/* Active Line indicator downwards */}
                       {isActive && (
                         <div className="absolute left-[14px] top-3.5 w-px h-full bg-gradient-to-b from-[#FF6B35] to-transparent opacity-50" />
@@ -297,19 +306,19 @@ export default function TimelineEngine({
 
                     {/* Event Content Card */}
                     <div className={`
-                      border-l-2 pl-4 transition-all duration-300
+                      border-l-2 pl-4 transition-all duration-500
                       ${isActive
                         ? 'border-[#FF6B35]'
                         : isPast
-                          ? 'border-zinc-800'
-                          : 'border-zinc-700'
+                          ? 'border-zinc-800 group-hover:border-zinc-500'
+                          : 'border-zinc-700 group-hover:border-[#18BBF7]/60'
                       }
                     `}>
                       {/* Timing Badge */}
                       <div className={`
-                        inline-flex items-center px-2 py-1 text-[10px] font-mono mb-2 border
+                        inline-flex items-center px-2 py-1 text-[10px] font-mono mb-2 border tabular-nums transition-all duration-300
                         ${isActive
-                          ? 'bg-[#FF6B35] text-black border-[#FF6B35] font-bold'
+                          ? 'bg-[#FF6B35] text-black border-[#FF6B35] font-bold shadow-[0_0_20px_rgba(255,107,53,0.45)]'
                           : isPast
                             ? 'bg-zinc-900 text-zinc-400 border-zinc-800'
                             : 'bg-black text-zinc-400 border-zinc-700'
@@ -361,7 +370,11 @@ export default function TimelineEngine({
                   behavior: 'smooth',
                 });
               }}
-              className={`h-1.5 flex-1 transition-all duration-300 ${isActive ? 'bg-[#FF6B35]' : isPast ? 'bg-zinc-600  hover:bg-zinc-200' : 'bg-zinc-900 hover:bg-zinc-600'
+              className={`h-1.5 flex-1 transition-all duration-500 ${isActive
+                ? 'bg-[#FF6B35] shadow-[0_0_8px_rgba(255,107,53,0.7)]'
+                : isPast
+                  ? 'bg-zinc-600 hover:bg-zinc-300'
+                  : 'bg-zinc-900 hover:bg-zinc-600'
                 }`}
               title={`${event.type.abbrev} - ${formatRelativeTime(event.relative_time)}`}
             />

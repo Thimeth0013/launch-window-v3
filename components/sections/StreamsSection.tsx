@@ -47,9 +47,7 @@ export default function StreamsSection({ launchSlug }: { launchSlug: string }) {
     );
   }
 
-  if (error || streams.length === 0) {
-    return null;
-  }
+  const isEmpty = error || streams.length === 0;
 
   return (
     <section className="mt-12 space-y-6">
@@ -60,8 +58,21 @@ export default function StreamsSection({ launchSlug }: { launchSlug: string }) {
         <div className="h-px flex-1 bg-white/10" />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        {streams.map((stream) => (
+      {isEmpty ? (
+        <div className="flex flex-col items-center justify-center p-10 border border-white/5 bg-white/[0.02] w-full text-center gap-3">
+          <MonitorPlay className="w-6 h-6 text-zinc-700" strokeWidth={1.5} />
+          <div className="space-y-1">
+            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+              {error ? 'Stream Lookup Unavailable' : 'No Broadcasts Scheduled'}
+            </p>
+            <p className="text-[9px] font-mono text-zinc-700 uppercase tracking-widest">
+              {error ? 'Retry shortly' : 'Channels typically post 24-48h before launch'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+          {streams.map((stream) => (
           <a
             key={stream.streamId}
             href={stream.url}
@@ -95,8 +106,9 @@ export default function StreamsSection({ launchSlug }: { launchSlug: string }) {
               </h4>
             </div>
           </a>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

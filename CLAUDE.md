@@ -15,19 +15,21 @@ There is no test framework configured.
 
 - `MONGODB_URI` — Mongoose connection string
 - `YOUTUBE_API_KEY` — YouTube Data API v3 key (stream matching silently skips if absent)
+- `NASA_API_KEY` — api.nasa.gov key for the homepage APOD block (skips silently if absent — the block falls back to a placeholder)
 - `NEXT_PUBLIC_API_URL` — base URL used by client components when hitting our own API routes
 
 ## Architecture
 
-The app is a Next.js 16 App Router project (React 19, Tailwind v4, Mongoose 9). It tracks upcoming launches from The Space Devs Launch Library 2 API (`https://ll.thespacedevs.com/2.3.0`) and YouTube livestreams. The non-obvious parts are the **caching/sync strategy** and the **id vs. slug discipline**.
+The app is a Next.js 16 App Router project (React 19, Tailwind v4, Mongoose 9). It tracks upcoming launches from The Space Devs Launch Library 2 API (`https://ll.thespacedevs.com/2.3.0`), spaceflight news articles from SNAPI v4 (`https://api.spaceflightnewsapi.net/v4`), and YouTube livestreams. The non-obvious parts are the **caching/sync strategy** and the **id vs. slug discipline**.
 
 ### Sync model (lazy, layered)
 
-We never run a cron — sync is triggered by request traffic. Three layers, each with its own cadence:
+We never run a cron — sync is triggered by request traffic. Four layers, each with its own cadence:
 
-1. **Global manifest sync** (`GET /api/launches`): if `LaunchSync.GLOBAL_LAUNCH_SYNC.lastUpdated` is older than 1 hour, call `fetchUpcomingLaunches()` (`app/lib/services/launchService.ts`), which pulls `launches/upcoming/?mode=detailed&limit=30` and upserts every launch. On sync failure the route still serves stale Mongo data — never error out the user.
+1. **Global launch manifest sync** (`GET /api/launches`, plus `ensureFreshLaunches()` called from `/launches/[slug]`): if `LaunchSync.GLOBAL_LAUNCH_SYNC.lastUpdated` is older than 1 hour, call `fetchUpcomingLaunches()` (`app/lib/services/launchService.ts`), which pulls `launches/upcoming/?mode=detailed&limit=30` and upserts every launch. On sync failure the route still serves stale Mongo data — never error out the user.
 2. **Per-launch scrub detection** (`GET /api/launches/[slug]`): when the launch is in the T-2h → T+10min window, dynamically import `checkForScrub` (`scrubDetectionScheduler.ts`) and re-fetch that single launch by id. Cache header drops to `s-maxage=300` inside the critical window, `s-maxage=1800` otherwise.
 3. **Stream sync** (`GET /api/launches/[slug]/streams`): `getOrSyncStreams` in `youtubeService.ts` has a **proximity gate** — launches more than `PROXIMITY_WINDOW_HOURS` (48) out skip the YouTube API entirely and return whatever is cached, since channels rarely schedule streams that early. Inside the window, an adaptive TTL applies: 30 min when launch is within ±24h, 12 h otherwise. `?force=true` bypasses both the proximity gate and the TTL. Results are stored in the `StreamSync` collection keyed by `launchId`.
+4. **Article sync** (`GET /api/articles`, plus `ensureFreshArticles()` called from `/` and `/articles`): if `ArticleSync.GLOBAL_ARTICLE_SYNC.lastUpdated` is older than 1 hour, call `fetchLatestArticles()` (`app/lib/services/articleService.ts`), which pulls `/v4/articles/?ordering=-published_at&limit=25` from SNAPI and upserts every article. **The sync timestamp is advanced even on failure** — this enforces a real 1h cool-down on rate-limit (429) responses instead of every page request hammering SNAPI. `Article.id` is a numeric integer (not a UUID) — SNAPI uses sequential IDs. There is **no internal article detail page**: both `ArticleCard` on the homepage and the rows on `/articles` link directly to the external `article.url` in a new tab. SNAPI doesn't expose full article bodies, only summaries, so all reading happens on the source site.
 
 `lightCheckService.ts` defines a smarter pattern (`LaunchPhase` = STANDBY/APPROACH/TERMINAL, light `mode=list` check before a heavy `mode=detailed` fetch, in-memory 15-calls/hour rate-limit guard) but is **not currently wired into any route**. Prefer extending it over adding a new ad-hoc fetcher if you need finer-grained sync.
 
@@ -49,6 +51,15 @@ When `launchService.detectSignificantChanges` sees a >24h slip or a Go→TBD/TBC
 
 `app/lib/hooks/useServerTime.ts` calls `/api/time` (force-dynamic, no cache) and computes a client/server offset using half the round-trip time, re-syncing every 5 min. Mission clocks and the `TimelineEngine` rely on `getServerTime()` for countdowns — do not substitute `Date.now()` directly in countdown logic or clocks will drift on misconfigured clients.
 
+### Homepage layout
+
+`app/page.tsx` is a **single-viewport brutalist 3-block grid**, not a scrolling marketing page. The intent is a "mission control terminal" — three independent data blocks visible without scroll:
+- **Block 01** (left, spans 2 rows): NASA Astronomy Picture of the Day (`getApod()` in `nasaService.ts`).
+- **Block 02** (right top): next upcoming launch with a live `MiniCountdown` and "Mission Intel" CTA.
+- **Block 03** (right bottom): latest news article, with an external "Read" CTA opening SNAPI's source URL.
+
+The grid is `h-screen` with `md:overflow-hidden`. On mobile (`<md`) the grid collapses to a vertical stack and scroll is allowed. Each block has corner-tick accents, an index label (`[01]`, `[02]`, `[03]`), and degrades to a `BlockEmpty` placeholder if its data source fails. APOD uses Next.js fetch caching (`revalidate: 3600`) so the cosmic image only re-fetches once per hour — it changes daily anyway.
+
 ### Frontend
 
 - App Router under `app/`. Server components fetch via the service layer directly (not via our own HTTP routes) — see `app/page.tsx` and `app/launches/[slug]/page.tsx`. The `/api/*` routes exist for client-side and external consumption.
@@ -59,6 +70,8 @@ When `launchService.detectSignificantChanges` sees a >24h slip or a Go→TBD/TBC
 ### External image domains
 
 `next.config.ts` whitelists `thespacedevs-prod.nyc3.digitaloceanspaces.com`, `spacelaunchnow-prod-east.nyc3.digitaloceanspaces.com`, and `i.ytimg.com`. New launch image sources need to be added here before `next/image` will render them.
+
+**Article images use plain `<img>` tags** (`components/ui/ArticleCard.tsx`, `app/articles/[id]/page.tsx`) — SNAPI articles come from arbitrary news sites (SpaceNews, Ars Technica, NASASpaceflight.com, etc.) with image URLs on each outlet's own CDN. Maintaining an allow-list there is infeasible, so we bypass `next/image` for article visuals. Same precedent as `StreamsSection.tsx`, which uses `<img>` for YouTube thumbnails. Don't migrate these to `next/image` without adding the appropriate `remotePatterns` first.
 
 ## YouTube matcher notes
 
