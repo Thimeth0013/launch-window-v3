@@ -5,9 +5,11 @@
 // be pinged on a schedule by either Vercel Cron or an external pinger such
 // as UptimeRobot.
 //
-// Auth: every request must include `Authorization: Bearer <CRON_SECRET>`
-// (matches the env var). Vercel Cron sends this header automatically.
-// External pingers (UptimeRobot etc.) need to be configured to send it.
+// Auth: every request must either include `Authorization: Bearer <CRON_SECRET>`
+// or pass the same value in a `?secret=...` query string. The query-string
+// fallback is for monitoring services that don't support custom HTTP headers
+// on their free tiers (e.g. UptimeRobot). Vercel Cron sends the header
+// automatically; both forms work.
 //
 // Timeout: bumped to 60s so the full prefetch (~10 detailed calls with small
 // pauses) comfortably fits inside one invocation, even on Vercel Hobby.
@@ -30,7 +32,10 @@ export async function GET(request: NextRequest) {
   }
 
   const auth = request.headers.get('authorization');
-  if (auth !== `Bearer ${secret}`) {
+  const querySecret = request.nextUrl.searchParams.get('secret');
+  const authorized = auth === `Bearer ${secret}` || querySecret === secret;
+
+  if (!authorized) {
     console.warn('⚠️  [CRON] Unauthorized prefetch trigger attempt');
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
