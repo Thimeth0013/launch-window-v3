@@ -181,24 +181,36 @@ export const ensureFreshLaunches = async () => {
 interface ThrottleStatus {
   limit: number;
   remaining: number;
+  nextUseSecs?: number;
 }
 
 // Calling /api-throttle/ does NOT count against the budget itself (TSD
-// excludes monitoring queries). Tolerant of small response-shape differences.
+// excludes monitoring queries). The endpoint returns:
+//   {
+//     your_request_limit: 15,
+//     limit_frequency_secs: 3600,
+//     current_use: 12,
+//     next_use_secs: 0,
+//     ident: "..."
+//   }
 async function fetchThrottleStatus(): Promise<ThrottleStatus | null> {
   try {
     const res = await axios.get(`${LAUNCH_LIBRARY_API}/api-throttle/`, {
       timeout: 10000,
     });
     const data: any = res.data;
-    const info = data?.your_request ?? data;
-    const limit = info?.limit;
-    const remaining = info?.remaining;
-    if (typeof limit !== 'number' || typeof remaining !== 'number') {
+    const limit = data?.your_request_limit;
+    const currentUse = data?.current_use;
+    const nextUseSecs = data?.next_use_secs;
+    if (typeof limit !== 'number' || typeof currentUse !== 'number') {
       console.warn('⚠️  [THROTTLE] Unexpected response shape:', data);
       return null;
     }
-    return { limit, remaining };
+    return {
+      limit,
+      remaining: Math.max(0, limit - currentUse),
+      nextUseSecs: typeof nextUseSecs === 'number' ? nextUseSecs : undefined,
+    };
   } catch (err: any) {
     console.warn(`⚠️  [THROTTLE] Failed to read throttle: ${err?.message || 'unknown'}`);
     return null;
@@ -225,16 +237,19 @@ export const prefetchDetailedLaunches = async () => {
   }
 
   const budget = Math.max(0, throttle.remaining - PREFETCH_RESERVE_CALLS);
+  const resetIn =
+    throttle.nextUseSecs !== undefined ? ` (resets in ${throttle.nextUseSecs}s)` : '';
+
   if (budget === 0) {
     console.log(
-      `🎯 [PREFETCH] Budget ${throttle.remaining}/${throttle.limit} − reserve ${PREFETCH_RESERVE_CALLS} = 0. Skipping.`
+      `🎯 [PREFETCH] Budget ${throttle.remaining}/${throttle.limit} − reserve ${PREFETCH_RESERVE_CALLS} = 0${resetIn}. Skipping.`
     );
     return;
   }
 
   const slots = Math.min(budget, PREFETCH_MAX_PER_RUN);
   console.log(
-    `🎯 [PREFETCH] ${throttle.remaining}/${throttle.limit} remaining, reserving ${PREFETCH_RESERVE_CALLS}, prefetching up to ${slots} launches`
+    `🎯 [PREFETCH] ${throttle.remaining}/${throttle.limit} remaining${resetIn}, reserving ${PREFETCH_RESERVE_CALLS}, prefetching up to ${slots} launches`
   );
 
   // Closest-to-T0 upcoming launches first. Over-fetch the list so we can skip
