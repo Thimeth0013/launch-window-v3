@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
 import { Search, Rocket, X, ChevronUp, ChevronDown } from 'lucide-react';
 import LaunchCard from '../ui/LaunchCard';
 
@@ -11,6 +13,7 @@ interface LaunchListProps {
 export default function LaunchList({ initialLaunches }: LaunchListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const now = new Date();
 
@@ -39,6 +42,35 @@ export default function LaunchList({ initialLaunches }: LaunchListProps) {
 
   const upcomingCount = initialLaunches.filter(l => new Date(l.date) >= now).length;
   const completedCount = initialLaunches.filter(l => new Date(l.date) < now).length;
+
+  // Scroll-triggered fade-in for the launch cards. Re-runs when the
+  // upcoming/completed toggle flips since the entire card set is swapped out.
+  useEffect(() => {
+    if (!gridRef.current) return;
+    gsap.registerPlugin(ScrollTrigger);
+
+    const ctx = gsap.context(() => {
+      const cards = gsap.utils.toArray<HTMLElement>('[data-launch-card]');
+      if (cards.length === 0) return;
+      gsap.set(cards, { opacity: 0, y: 40 });
+
+      ScrollTrigger.batch('[data-launch-card]', {
+        start: 'top 88%',
+        onEnter: (elements) => {
+          gsap.to(elements, {
+            opacity: 1,
+            y: 0,
+            duration: 0.7,
+            stagger: 0.08,
+            ease: 'power2.out',
+            overwrite: true,
+          });
+        },
+      });
+    }, gridRef);
+
+    return () => ctx.revert();
+  }, [showCompleted]);
 
   return (
     <>
@@ -110,9 +142,11 @@ export default function LaunchList({ initialLaunches }: LaunchListProps) {
 
       {/* Grid Display */}
       {filteredLaunches.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
+        <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
           {filteredLaunches.map((launch) => (
-            <LaunchCard key={launch.slug} launch={launch} />
+            <div key={launch.slug} data-launch-card className="h-full">
+              <LaunchCard launch={launch} />
+            </div>
           ))}
         </div>
       ) : (

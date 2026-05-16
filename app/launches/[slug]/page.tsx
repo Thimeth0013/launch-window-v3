@@ -1,8 +1,6 @@
 // app/launches/[slug]/page.tsx
-import { ChevronLeft} from 'lucide-react';
 import TimelineEngine from '@/components/ui/TimelineEngine';
 import MissionClock from '@/components/ui/MissionClock';
-import Link from 'next/link';
 import CrewSection from '@/components/sections/CrewSection';
 import VehicleDetailsCard from '@/components/sections/VehicleDetailsCard';
 import LaunchLocationCard from '@/components/ui/LaunchLocationCard';
@@ -11,6 +9,7 @@ import WeatherConditions from '@/components/ui/WeatherConditions';
 import MissionStatistics from '@/components/ui/MissionStatistics';
 import ProgramBadge from '@/components/ui/ProgramBadge';
 import StreamsSection from '@/components/sections/StreamsSection';
+import AppHeader from '@/components/sections/AppHeader';
 import { ensureFreshLaunches, getLaunchById, getUpcomingLaunches } from '@/app/lib/services/launchService';
 import { notFound } from 'next/navigation';
 
@@ -61,18 +60,10 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
   return (
     <div className="min-h-screen bg-black text-zinc-300 selection:bg-[#FF6B35] selection:text-black overflow-x-hidden pb-12 md:pb-24">
 
+      <AppHeader />
+
       {/* 1. CINEMATIC HERO HEADER */}
       <div className="relative h-screen w-full overflow-hidden">
-
-        {/* BACK BUTTON (TOP LEFT) */}
-        <div className="fixed top-4 left-4 md:top-12 md:left-12 z-50">
-          <Link
-            href="/launches"
-            className="group flex items-center gap-2 bg-black/20 backdrop-blur-md border border-white/10 p-3 transition-all hover:bg-white hover:text-black"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-        </div>
 
         {launch.image?.image_url && (
           <>

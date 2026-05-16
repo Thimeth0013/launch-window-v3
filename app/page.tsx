@@ -4,6 +4,7 @@ import { getUpcomingLaunches, fetchUpcomingLaunches } from "@/app/lib/services/l
 import { ensureFreshArticles, getLatestArticles } from "@/app/lib/services/articleService";
 import { getApod, type Apod } from "@/app/lib/services/nasaService";
 import MiniCountdown from "@/components/ui/MiniCountdown";
+import AppHeader from "@/components/sections/AppHeader";
 
 async function getLatestLaunch() {
   try {
@@ -37,37 +38,9 @@ export default async function Home() {
     getApod(),
   ]);
 
-  const today = new Date().toLocaleDateString('en-GB', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  });
-
   return (
     <div className="h-screen w-full bg-black text-white selection:bg-[#FF6B35] selection:text-black flex flex-col md:overflow-hidden">
-
-      {/* HEADER STRIP */}
-      <header className="shrink-0 border-b-2 border-white/10 px-4 md:px-8 py-3 md:py-4 flex items-center justify-between gap-4 bg-black z-30">
-        <div className="flex items-center gap-3">
-          <span className="relative flex w-2 h-2">
-            <span className="absolute inline-flex w-full h-full bg-[#FF6B35] opacity-75 animate-ping" />
-            <span className="relative inline-flex w-2 h-2 bg-[#FF6B35]" />
-          </span>
-          <span className="font-mono text-[10px] md:text-xs text-white uppercase tracking-[0.4em] font-black">
-            Launch Window
-          </span>
-          <span className="hidden md:inline text-zinc-700 font-mono text-[10px]">//</span>
-          <span className="hidden md:inline font-mono text-[10px] text-zinc-500 uppercase tracking-widest tabular-nums">
-            Terminal 2.3.0 / {today}
-          </span>
-        </div>
-        <nav className="flex items-center gap-4 md:gap-6 font-mono text-[10px] uppercase tracking-widest">
-          <Link href="/launches" className="text-zinc-300 hover:text-[#18BBF7] transition-colors">
-            Launches
-          </Link>
-          <Link href="/articles" className="text-zinc-300 hover:text-[#18BBF7] transition-colors">
-            Archive
-          </Link>
-        </nav>
-      </header>
+      <AppHeader />
 
       {/* BLOCK GRID */}
       <main className="flex-1 grid grid-cols-1 md:grid-cols-12 md:grid-rows-2 gap-px bg-white/10 md:overflow-hidden">

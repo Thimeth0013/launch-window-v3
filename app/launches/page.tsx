@@ -1,8 +1,7 @@
 // app/launches/page.tsx
-import Link from 'next/link';
 import LaunchList from '@/components/sections/LaunchList';
-import { ChevronLeft } from 'lucide-react';
-import LightPillar from '@/components/LightPillar'; 
+import Particles from '@/components/Particles';
+import AppHeader from '@/components/sections/AppHeader';
 
 interface Launch {
   id: string;
@@ -64,42 +63,31 @@ export default async function LaunchesPage() {
   const launches = await getLaunches();
 
   return (
-    <div className="relative min-h-screen bg-black py-16 overflow-hidden">
-      
-      {/* BACKGROUND: Fixed position, full screen, behind content */}
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-80">
-        <LightPillar
-          topColor="#ffffff"
-          bottomColor="#949494"
-          intensity={1}
-          rotationSpeed={0.3}
-          glowAmount={0.002}
-          pillarWidth={3}
-          pillarHeight={0.4}
-          noiseIntensity={0.5}
-          pillarRotation={25}
-          interactive={false}
-          mixBlendMode="screen"
-          quality="high"
+    <div className="relative min-h-screen bg-black overflow-hidden">
+
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <Particles
+          particleColors={["#ffffff"]}
+          particleCount={200}
+          particleSpread={10}
+          speed={0.1}
+          particleBaseSize={100}
+          moveParticlesOnHover
+          alphaParticles={false}
+          disableRotation={false}
+          pixelRatio={1}
         />
       </div>
 
+      <AppHeader />
+
       {/* FOREGROUND CONTENT: Relative position to sit above the background */}
       <div className="relative z-10">
-        <div className="fixed top-4 left-4 md:top-12 md:left-12 z-50">
-          <Link
-            href="/"
-            className="group flex items-center gap-2 bg-black/20 backdrop-blur-md border border-white/10 p-3 transition-all hover:bg-white hover:text-black"
-          >
-            <ChevronLeft className="w-5 h-5 text-white/10 group-hover:text-black"/>
-          </Link>
-        </div>
-        
-        <div className="max-w-8xl mx-auto mt-10 px-8 md:px-12">
+        <div className="max-w-8xl mx-auto py-12 md:py-16 px-8 md:px-12">
           <LaunchList initialLaunches={launches} />
         </div>
       </div>
-      
+
     </div>
   );
 }
