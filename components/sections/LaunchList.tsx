@@ -72,6 +72,25 @@ export default function LaunchList({ initialLaunches }: LaunchListProps) {
     return () => ctx.revert();
   }, [showCompleted]);
 
+  // Searching without scrolling would otherwise leave below-fold cards stuck
+  // at the pre-scroll opacity 0 — their ScrollTrigger never fired. Force-reveal
+  // every currently-rendered card on each query change. Skipped when the query
+  // is empty so the initial scroll-in animation on mount isn't overwritten.
+  useEffect(() => {
+    if (!searchQuery) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-launch-card]'));
+    if (cards.length === 0) return;
+    gsap.to(cards, {
+      opacity: 1,
+      y: 0,
+      duration: 0.3,
+      ease: 'power2.out',
+      overwrite: true,
+    });
+  }, [searchQuery]);
+
   return (
     <>
       {/* Header Section */}

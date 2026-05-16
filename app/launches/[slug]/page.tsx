@@ -10,6 +10,7 @@ import MissionStatistics from '@/components/ui/MissionStatistics';
 import ProgramBadge from '@/components/ui/ProgramBadge';
 import StreamsSection from '@/components/sections/StreamsSection';
 import AppHeader from '@/components/sections/AppHeader';
+import SlugScrollAnimator from '@/components/sections/SlugScrollAnimator';
 import { ensureFreshLaunches, getLaunchById, getUpcomingLaunches } from '@/app/lib/services/launchService';
 import { notFound } from 'next/navigation';
 
@@ -63,11 +64,11 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
       <AppHeader />
 
       {/* 1. CINEMATIC HERO HEADER */}
-      <div className="relative h-screen w-full overflow-hidden">
+      <div className="relative h-screen w-full overflow-hidden group/hero">
 
         {launch.image?.image_url && (
           <>
-            <div className="absolute inset-0">
+            <div data-hero-bg className="absolute inset-0">
               <img
                 src={launch.image.image_url}
                 alt={launch.name}
@@ -76,20 +77,20 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
             </div>
 
             {/* Gradient Overlays */}
-            <div className="absolute inset-0 bg-linear-to-t from-black via-black/60 to-transparent" />
-            <div className="absolute inset-0 bg-black/20 md:bg-black/0" />
+            <div data-hero-overlay className="absolute inset-0 bg-linear-to-t from-black via-black/60 to-transparent" />
+            <div data-hero-overlay className="absolute inset-0 bg-black/20 md:bg-black/0" />
           </>
         )}
 
         <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6">
 
-          <h1 className="max-w-full md:max-w-5xl text-4xl md:text-6xl font-bold uppercase tracking-tight text-white mb-4 leading-tight md:leading-16 drop-shadow-lg">
+          <h1 data-hero-title className="max-w-full md:max-w-5xl text-4xl md:text-6xl font-bold uppercase tracking-tight text-white mb-4 leading-tight md:leading-16 drop-shadow-lg">
             {launch.name}
           </h1>
 
-          <div className="h-1.5 w-32 bg-[#FF6B35] shadow-[0_0_20px_rgba(255,107,53,0.8)] mb-8 md:mb-12" />
+          <div data-hero-bar className="h-1.5 w-32 bg-[#FF6B35] shadow-[0_0_20px_rgba(255,107,53,0.8)] mb-8 md:mb-12" />
 
-          <div className="w-full max-w-2xl mb-8 md:mb-16 mt-8 md:mt-12">
+          <div data-hero-clock className="w-full max-w-2xl mb-8 md:mb-16 mt-8 md:mt-12">
             <MissionClock
               launchDate={new Date(launch.date)}
               status={launch.status}
@@ -98,7 +99,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
           </div>
 
           {/* TELEMETRY MARQUEE */}
-          <div className="w-full max-w-5xl overflow-hidden py-6">
+          <div data-hero-marquee className="w-full max-w-5xl overflow-hidden py-6">
             <div className="relative flex">
               <div className="flex animate-marquee whitespace-nowrap">
                 {[...telemetry, ...telemetry].map((item, idx) => (
@@ -120,10 +121,13 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
         </div>
 
         {patch && (
-          <div className="absolute top-12 right-12 w-36 h-36 hidden md:block perspective-[1000px]">
+          <div
+            data-hero-patch
+            className="absolute top-24 right-6 md:top-28 md:right-12 w-28 h-28 md:w-32 md:h-32 hidden md:block opacity-20 group-hover/hero:opacity-100 transition-opacity duration-500 ease-out pointer-events-none z-20"
+          >
             <img
               src={patch}
-              className="w-full h-full transition-transform duration-1000 ease-in-out hover:transform-[rotateY(360deg)] drop-shadow-lg"
+              className="w-full h-full"
               alt="Mission Patch"
             />
           </div>
@@ -134,44 +138,53 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
 
           {/* LEFT CONTENT */}
-          <div className="lg:col-span-6 space-y-8 md:space-y-16">
+          <div className="lg:col-span-7 space-y-8 md:space-y-16">
 
             {/* MISSION BRIEFING */}
-            <section>
-              <div className="flex items-center gap-4 mb-8">
+            <section data-scroll-section>
+              <div className="flex items-center gap-4 mb-6 md:mb-8">
                 <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-[#18BBF7]">Mission Briefing</h3>
                 <div className="h-px flex-1 bg-white/10" />
               </div>
-              <p className="text-md md:text-lg font-light leading-relaxed text-zinc-400 uppercase tracking-tight">
+              <p className="text-xs md:text-sm lg:text-sm font-light leading-relaxed text-zinc-400 uppercase tracking-tight">
                 {launch.mission?.description || "No mission description provided for this flight trajectory."}
               </p>
-            </section>            
+            </section>
           </div>
 
           {/* RIGHT SIDEBAR - TECHNICAL SPECS */}
-          <div className="lg:col-span-6 space-y-10">
+          <div className="lg:col-span-5 space-y-10">
 
             {/* LIVE UPDATES */}
-            <div className="bg-black border border-zinc-800/60 p-6 font-mono text-[11px] h-64 overflow-y-auto">
+            <div data-scroll-section className="bg-black border border-zinc-800/60 p-5 md:p-6 font-mono text-[11px] h-56 md:h-64 overflow-y-auto">
               <div className="text-zinc-500 mb-4 border-b border-zinc-800 pb-2 flex items-center gap-2">
                 <div className="w-0.5 h-2 bg-[#FF6B35] animate-ping" />
                 LIVE MISSION LOG
+                <span className="ml-auto font-mono text-[9px] text-zinc-700 uppercase tracking-widest tabular-nums">
+                  {updates.length.toString().padStart(2, '0')} entries
+                </span>
               </div>
-              {updates.map((update: any) => (
-                <div key={update.id} className="mb-3 leading-relaxed">
-                  <span className="text-zinc-600">
-                    {new Date(update.created_on).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                  <span className="text-[#FF6B35]"> {update.created_by} : </span>{" "}
-                  <span className="text-zinc-400 uppercase">{update.comment}</span>
+              {updates.length === 0 ? (
+                <div className="text-zinc-700 text-[10px] uppercase tracking-widest text-center py-8">
+                  No updates broadcast
                 </div>
-              ))}
+              ) : (
+                updates.map((update: any) => (
+                  <div key={update.id} className="mb-3 leading-relaxed">
+                    <span className="text-zinc-600">
+                      {new Date(update.created_on).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                    <span className="text-[#FF6B35]"> {update.created_by} : </span>{" "}
+                    <span className="text-zinc-400 uppercase">{update.comment}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -192,35 +205,40 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
 
           {/* LEFT CONTENT */}
           <div className="lg:col-span-6 space-y-8 lg:space-y-12">
-            {/* VEHICLE DETAILS CARD */}
             {launch.rocket && <VehicleDetailsCard rocket={launch.rocket} />}
-
-            {/* CREW */}
             {crew.length > 0 && <CrewSection crew={crew} />}
-
             <MissionStatistics launch={launch} />
-
-            <ProgramBadge programs={launch.program} />
+            <div data-scroll-section>
+              <ProgramBadge programs={launch.program} />
+            </div>
           </div>
 
           {/* RIGHT SIDEBAR - TECHNICAL SPECS */}
-          <div className="lg:col-span-6 space-y-10">
-            <WeatherConditions
-              probability={launch.probability}
-              weather_concerns={launch.weather_concerns}
-              window_start={launch.window_start}
-              window_end={launch.window_end}
-            />
+          <div className="lg:col-span-6 space-y-8 lg:space-y-10">
+            <div data-scroll-section>
+              <WeatherConditions
+                probability={launch.probability}
+                weather_concerns={launch.weather_concerns}
+                window_start={launch.window_start}
+                window_end={launch.window_end}
+              />
+            </div>
 
-            {/* DESTINATION CARD */}
-            {launch.mission && <DestinationCard mission={launch.mission} />}
+            {launch.mission && (
+              <div data-scroll-section>
+                <DestinationCard mission={launch.mission} />
+              </div>
+            )}
 
-            {/* LAUNCH LOCATION CARD */}
-            {launch.pad && <LaunchLocationCard pad={launch.pad} />}
+            {launch.pad && (
+              <div data-scroll-section>
+                <LaunchLocationCard pad={launch.pad} />
+              </div>
+            )}
           </div>
         </div>
         
-        <div id="streams-section">
+        <div id="streams-section" data-scroll-section>
           <StreamsSection launchSlug={launch.slug} />
         </div>
 
@@ -233,19 +251,8 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
         </a>
 
       </div>
-    </div>
-  );
-}
 
-// Helper Component for the Technical Sidebar
-function DataRow({ label, value, subValue, highlight = false }: any) {
-  return (
-    <div className="border-b border-white/5 pb-4">
-      <span className="text-[9px] text-zinc-600 uppercase tracking-[0.2em] block mb-1 font-bold">{label}</span>
-      <span className={`text-sm uppercase font-black tracking-tight ${highlight ? 'text-[#FF6B35]' : 'text-white'}`}>
-        {value || 'DATA_NOT_FOUND'}
-      </span>
-      {subValue && <span className="block text-[11px] text-zinc-400 uppercase mt-1">{subValue}</span>}
+      <SlugScrollAnimator />
     </div>
   );
 }

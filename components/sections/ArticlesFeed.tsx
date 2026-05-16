@@ -139,8 +139,9 @@ export default function ArticlesFeed({ articles }: { articles: Article[] }) {
   const feedRef = useRef<HTMLDivElement>(null);
 
   // Scroll-triggered fade-in for the article rows. Runs once on mount; search
-  // filtering doesn't re-run animations (keystroke-by-keystroke flicker is
-  // worse than letting filtered-back-in cards appear at their natural state).
+  // filtering doesn't re-run the scroll animations (keystroke-by-keystroke
+  // flicker is worse than letting filtered-back-in cards appear at their
+  // natural state).
   useEffect(() => {
     if (!feedRef.current) return;
     gsap.registerPlugin(ScrollTrigger);
@@ -167,6 +168,25 @@ export default function ArticlesFeed({ articles }: { articles: Article[] }) {
 
     return () => ctx.revert();
   }, []);
+
+  // Searching without scrolling would otherwise leave below-fold rows stuck
+  // at the pre-scroll opacity 0 — their ScrollTrigger never fired. Force-reveal
+  // every currently-rendered row on each query change. Skipped when the query
+  // is empty so the initial scroll-in animation on mount isn't overwritten.
+  useEffect(() => {
+    if (!query) return;
+    const feed = feedRef.current;
+    if (!feed) return;
+    const cards = Array.from(feed.querySelectorAll<HTMLElement>('[data-article-card]'));
+    if (cards.length === 0) return;
+    gsap.to(cards, {
+      opacity: 1,
+      y: 0,
+      duration: 0.3,
+      ease: 'power2.out',
+      overwrite: true,
+    });
+  }, [query]);
 
   const filtered = articles.filter((a) => {
     if (!query) return true;

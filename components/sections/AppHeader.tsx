@@ -1,17 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 
 const SCROLL_DELTA_THRESHOLD = 8;
 const ALWAYS_SHOW_BELOW = 60;
 
+// Resolve where "back" should go based on the current URL — explicit parent
+// route rather than browser history. /launches/[slug] → /launches; any other
+// inner page → /.
+function resolveBackHref(pathname: string | null): string {
+  if (!pathname || pathname === '/') return '/';
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length <= 1) return '/';
+  return '/' + segments.slice(0, -1).join('/');
+}
+
 export default function AppHeader() {
-  const router = useRouter();
   const pathname = usePathname();
   const isHome = pathname === '/';
+  const backHref = resolveBackHref(pathname);
   const [today, setToday] = useState('');
   const [hidden, setHidden] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -48,14 +58,6 @@ export default function AppHeader() {
     return () => window.removeEventListener('scroll', handle);
   }, []);
 
-  const handleBack = () => {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back();
-    } else {
-      router.push('/');
-    }
-  };
-
   const isLaunches = pathname?.startsWith('/launches');
   const isArticles = pathname?.startsWith('/articles');
 
@@ -86,14 +88,14 @@ export default function AppHeader() {
     >
       <div className="flex items-center gap-3 md:gap-4">
         {!isHome && (
-          <button
-            onClick={handleBack}
+          <Link
+            href={backHref}
             aria-label="Go back"
             className="group inline-flex items-center gap-1.5 text-white/40 border border-white/20 hover:border-white/50 hover:bg-white hover:text-black px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-widest transition-colors"
           >
             <ChevronLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
             <span className="hidden sm:inline">Back</span>
-          </button>
+          </Link>
         )}
 
         {isHome && (
