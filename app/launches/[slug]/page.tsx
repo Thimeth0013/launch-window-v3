@@ -11,7 +11,7 @@ import ProgramBadge from '@/components/ui/ProgramBadge';
 import StreamsSection from '@/components/sections/StreamsSection';
 import AppHeader from '@/components/sections/AppHeader';
 import SlugScrollAnimator from '@/components/sections/SlugScrollAnimator';
-import { ensureFreshLaunches, getLaunchById, getUpcomingLaunches } from '@/app/lib/services/launchService';
+import { ensureFreshLaunches, getOrFetchLaunchDetailedBySlug, getUpcomingLaunches } from '@/app/lib/services/launchService';
 import { notFound } from 'next/navigation';
 
 // 2. Set route revalidation (replaces the fetch revalidate option)
@@ -34,7 +34,7 @@ export async function generateStaticParams() {
 
 async function getLaunch(slug: string) {
   await ensureFreshLaunches();
-  const launch = await getLaunchById(slug);
+  const launch = await getOrFetchLaunchDetailedBySlug(slug);
   if (!launch) notFound();
   return JSON.parse(JSON.stringify(launch));
 }

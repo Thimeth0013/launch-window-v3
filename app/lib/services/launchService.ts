@@ -2,139 +2,137 @@
 import axios from 'axios';
 import connectDB from '../db/mongodb';
 import Launch from '../db/models/Launch';
+import LaunchDetailed from '../db/models/LaunchDetailed';
 import LaunchSync from '../db/models/LaunchSync';
 import StreamSync from '../db/models/StreamSync';
 
 const LAUNCH_LIBRARY_API = 'https://ll.thespacedevs.com/2.3.0';
-const GLOBAL_SYNC_TTL_MS = 60 * 60 * 1000;
 
-interface ApiLaunch {
+// Hourly throttle on the global manifest sync.
+const GLOBAL_SYNC_TTL_MS = 60 * 60 * 1000;
+// LaunchDetailed normal refresh window — re-fetch on next visit if older than this.
+const DETAILED_REFRESH_TTL_MS = 60 * 60 * 1000;
+// Inside the T-2h → T+10min critical window, refresh much more aggressively
+// since dates/status can change minute-to-minute.
+const CRITICAL_REFRESH_TTL_MS = 5 * 60 * 1000;
+// How many launches to keep in the list manifest.
+const MANIFEST_LIMIT = 30;
+
+interface ApiLaunchList {
   id: string;
   slug: string;
   name: string;
-  net: string;
-  status: {
-    name: string;
-  };
-  [key: string]: any;
+  net?: string;
+  last_updated?: string;
+  window_start?: string;
+  window_end?: string;
+  status?: { name?: string; abbrev?: string };
+  image?: any;
+  infographic?: string;
+  [k: string]: any;
 }
 
-// Detect significant mission changes
-const detectSignificantChanges = (oldLaunch: any, apiLaunch: ApiLaunch): boolean => {
-  const oldDate = new Date(oldLaunch.date);
-  const newDate = new Date(apiLaunch.net);
-  
-  const delayHours = (newDate.getTime() - oldDate.getTime()) / (1000 * 60 * 60);
-  const isSignificantDelay = delayHours > 24;
-  
-  const oldStatus = oldLaunch.status?.name || oldLaunch.status;
-  const newStatus = apiLaunch.status?.name || 'Unknown';
-  const statusLost = (oldStatus.includes('Go') && (newStatus.includes('TBD') || newStatus.includes('TBC')));
-
-  return isSignificantDelay || statusLost;
-};
-
-// Retry helper
 const fetchWithRetry = async (url: string, config: any, maxRetries = 3) => {
-  let lastError;
-  
+  let lastError: any;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await axios.get(url, config);
-      return response;
+      return await axios.get(url, config);
     } catch (error: any) {
       lastError = error;
+      // 4xx errors won't get better with retries — bail immediately.
       if (error.response?.status >= 400 && error.response?.status < 500) {
         throw error;
       }
       if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 1000 * attempt));
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
       }
     }
   }
   throw lastError;
 };
 
+// Detect significant change between cached list doc and new list-mode payload.
+// Triggers stream-cache cleanup and detailed-cache invalidation.
+const detectSignificantChanges = (oldLaunch: any, apiLaunch: ApiLaunchList): boolean => {
+  if (!oldLaunch?.date || !apiLaunch?.net) return false;
+  const oldDate = new Date(oldLaunch.date);
+  const newDate = new Date(apiLaunch.net);
+  const delayHours = (newDate.getTime() - oldDate.getTime()) / (1000 * 60 * 60);
+  const isSignificantDelay = delayHours > 24;
+  const oldStatus = oldLaunch.status?.name || '';
+  const newStatus = apiLaunch.status?.name || '';
+  const statusLost =
+    oldStatus.includes('Go') && (newStatus.includes('TBD') || newStatus.includes('TBC'));
+  return isSignificantDelay || statusLost;
+};
+
+/**
+ * Pull the upcoming-launches manifest in NORMAL mode and upsert into Launch.
+ *
+ * Normal mode is ~5× smaller than detailed (no launcher_stage/spacecraft_stage
+ * payloads, no timeline/updates/mission_patches, no agency history). But unlike
+ * list mode it still ships `launch_service_provider`, `pad`, `mission`, and
+ * `rocket.configuration` — the fields the list cards actually display. We save
+ * the heavy detailed payload for the per-launch lazy fetch (fetchLaunchDetailed).
+ */
 export const fetchUpcomingLaunches = async () => {
   try {
     await connectDB();
+    console.log('📡 [SYNC_LIST] Fetching launches in NORMAL mode...');
 
-    console.log('📡 [SYNC] Fetching launches from API v2.3.0 (detailed mode)...');
-    
     const response = await fetchWithRetry(
       `${LAUNCH_LIBRARY_API}/launches/upcoming/`,
-      { 
-        params: { 
-          limit: 30, 
-          mode: 'detailed'
-        }, 
-        timeout: 30000 
-      }
+      { params: { limit: MANIFEST_LIMIT, mode: 'normal' }, timeout: 30000 }
     );
 
-    const apiLaunches: ApiLaunch[] = response.data.results;
-    if (!apiLaunches) {
-      console.log('⚠️ [SYNC] No launches returned from API');
-      return [];
-    }
-
-    console.log(`📡 [SYNC] Processing ${apiLaunches.length} launches from API...`);
+    const apiLaunches: ApiLaunchList[] = response.data.results || [];
+    console.log(`📡 [SYNC_LIST] Processing ${apiLaunches.length} launches`);
 
     for (const apiLaunch of apiLaunches) {
       try {
-        const existingLaunch = await Launch.findOne({ id: apiLaunch.id });
+        const existing = await Launch.findOne({ id: apiLaunch.id });
 
-        if (existingLaunch) {
-          const needsStreamCleanup = detectSignificantChanges(existingLaunch, apiLaunch);
-          
-          if (needsStreamCleanup) {
-            console.log(`🗑️ [CLEANUP] Launch "${apiLaunch.name}" delayed/changed. Wiping stale streams.`);
-            await StreamSync.deleteOne({ launchId: apiLaunch.id });
-          }
+        if (existing && detectSignificantChanges(existing, apiLaunch)) {
+          console.log(
+            `🗑️  [CLEANUP] "${apiLaunch.name}" delayed/changed — wiping streams + detailed cache.`
+          );
+          await StreamSync.deleteOne({ launchId: apiLaunch.id });
+          // Invalidate the detailed cache so the user gets a fresh fetch
+          // next time they open this launch.
+          await LaunchDetailed.deleteOne({ id: apiLaunch.id });
         }
 
-        // Store FULL detailed data (includes slug from API)
         await Launch.findOneAndUpdate(
           { id: apiLaunch.id },
           {
+            // Normal mode brings provider/pad/mission/rocket-config along with
+            // the list essentials, which the launches list cards display. We
+            // spread the whole payload and just normalise the date fields.
+            // We do NOT $unset legacy detailed fields on existing docs —
+            // they're harmless and the source of truth for detail data
+            // lives in LaunchDetailed anyway.
             ...apiLaunch,
-            date: new Date(apiLaunch.net),
+            date: apiLaunch.net ? new Date(apiLaunch.net) : null,
             net: apiLaunch.net ? new Date(apiLaunch.net) : null,
             last_updated: apiLaunch.last_updated ? new Date(apiLaunch.last_updated) : null,
             window_end: apiLaunch.window_end ? new Date(apiLaunch.window_end) : null,
             window_start: apiLaunch.window_start ? new Date(apiLaunch.window_start) : null,
-            provider: apiLaunch.launch_service_provider?.name || 'Unknown'
+            // Legacy denormalised field used by some UI components
+            provider: apiLaunch.launch_service_provider?.name || 'Unknown',
           },
           { upsert: true, new: true }
         );
-        
-        console.log(`✅ [SAVED] ${apiLaunch.name} (slug: ${apiLaunch.slug})`);
       } catch (error: any) {
-        console.error(`❌ [ERROR] Failed to save launch ${apiLaunch.id}: ${error.message}`);
+        console.error(`❌ [SYNC_LIST] Failed to save ${apiLaunch.id}: ${error.message}`);
       }
     }
 
-    console.log(`✅ [SYNC] Completed processing ${apiLaunches.length} launches`);
+    console.log(`✅ [SYNC_LIST] Done — ${apiLaunches.length} launches updated`);
     return apiLaunches;
   } catch (error: any) {
-    console.error('❌ [SYNC_ERROR]:', error.message);
+    console.error('❌ [SYNC_LIST] Error:', error.message);
     throw error;
   }
-};
-
-export const getUpcomingLaunches = async (limit = 30) => {
-  await connectDB();
-  
-  const now = new Date();
-  const launches = await Launch.find({
-    date: { $gte: now }
-  })
-    .sort({ date: 1 })
-    .limit(limit)
-    .lean();
-  
-  console.log(`📊 [QUERY] Returning ${launches.length} upcoming launches from database`);
-  return launches;
 };
 
 // Runs the hourly global sync if it's stale. Safe to call from any route or page —
@@ -144,11 +142,14 @@ export const ensureFreshLaunches = async () => {
   const now = new Date();
   const globalSync = await LaunchSync.findOne({ syncId: 'GLOBAL_LAUNCH_SYNC' });
 
-  if (globalSync && now.getTime() - new Date(globalSync.lastUpdated).getTime() <= GLOBAL_SYNC_TTL_MS) {
+  if (
+    globalSync &&
+    now.getTime() - new Date(globalSync.lastUpdated).getTime() <= GLOBAL_SYNC_TTL_MS
+  ) {
     return;
   }
 
-  console.log('⏱️ [LAZY_SYNC] Global sync stale. Refreshing launch database...');
+  console.log('⏱️  [LAZY_SYNC] Manifest stale. Refreshing list-mode...');
   try {
     await fetchUpcomingLaunches();
     await LaunchSync.findOneAndUpdate(
@@ -156,22 +157,127 @@ export const ensureFreshLaunches = async () => {
       { lastUpdated: now },
       { upsert: true, new: true }
     );
-    console.log(`✅ [SYNC_COMPLETE] Database updated at ${now.toISOString()}`);
+    console.log(`✅ [SYNC_COMPLETE] List manifest updated at ${now.toISOString()}`);
   } catch (syncError) {
-    console.error('⚠️ [SYNC_ERROR] Failed to sync, serving cached data:', syncError);
+    console.warn('⚠️  [SYNC_ERROR] Failed to sync, serving cached data:', syncError);
   }
 };
 
-export const getLaunchById = async (slug: string) => {
-  console.log(`🔍 [QUERY] Searching for launch with slug: ${slug}`);
-  
-  const launch = await Launch.findOne({ slug }).lean();
-  
-  if (!launch) {
-    console.log(`❌ [NOT_FOUND] No launch found with slug: ${slug}`);
+/**
+ * Fetch a single launch in DETAILED mode and upsert into LaunchDetailed.
+ * Called lazily when a user opens a launch detail page. Also pushes any
+ * date/status updates back into the Launch list doc so the manifest stays
+ * accurate when scrubs happen.
+ */
+export const fetchLaunchDetailed = async (id: string) => {
+  await connectDB();
+  console.log(`📡 [SYNC_DETAILED] Fetching detailed data for ${id}...`);
+
+  const response = await fetchWithRetry(
+    `${LAUNCH_LIBRARY_API}/launches/upcoming/${id}/`,
+    { params: { mode: 'detailed' }, timeout: 30000 }
+  );
+
+  const data = response.data;
+  if (!data || !data.id) return null;
+
+  const detailedDoc = await LaunchDetailed.findOneAndUpdate(
+    { id: data.id },
+    {
+      ...data,
+      id: data.id,
+      slug: data.slug,
+      date: data.net ? new Date(data.net) : null,
+      lastFetchedAt: new Date(),
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).lean();
+
+  // Reflect the most recent scrub/status update back into the list doc so the
+  // manifest stays in sync without waiting on the hourly list refresh.
+  await Launch.findOneAndUpdate(
+    { id: data.id },
+    {
+      name: data.name,
+      slug: data.slug,
+      status: data.status,
+      net_precision: data.net_precision,
+      image: data.image,
+      date: data.net ? new Date(data.net) : null,
+      net: data.net ? new Date(data.net) : null,
+      window_start: data.window_start ? new Date(data.window_start) : null,
+      window_end: data.window_end ? new Date(data.window_end) : null,
+      last_updated: data.last_updated ? new Date(data.last_updated) : null,
+    },
+    { new: true }
+  );
+
+  console.log(`✅ [SYNC_DETAILED] Cached detailed data for "${data.name}"`);
+  return detailedDoc;
+};
+
+/**
+ * Read a launch's detailed payload by slug, fetching from the upstream API
+ * if the cache is missing or stale. Inside the T-2h → T+10min critical
+ * window we refresh at a tighter TTL so date/status flips show up promptly.
+ *
+ * Falls back to the existing list doc (which may still carry legacy detailed
+ * fields from the old architecture) if the fetch fails entirely — keeps the
+ * slug page renderable instead of 404-ing on a transient upstream error.
+ */
+export const getOrFetchLaunchDetailedBySlug = async (slug: string) => {
+  await connectDB();
+
+  const listLaunch: any = await Launch.findOne({ slug }).lean();
+  if (!listLaunch) return null;
+
+  let detailed: any = await LaunchDetailed.findOne({ id: listLaunch.id }).lean();
+
+  const now = Date.now();
+  const launchTime = listLaunch.date ? new Date(listLaunch.date).getTime() : null;
+  const hoursUntilLaunch = launchTime != null ? (launchTime - now) / (1000 * 60 * 60) : null;
+  const inCriticalWindow =
+    hoursUntilLaunch !== null && hoursUntilLaunch >= -0.167 && hoursUntilLaunch <= 2;
+
+  const ttl = inCriticalWindow ? CRITICAL_REFRESH_TTL_MS : DETAILED_REFRESH_TTL_MS;
+  const ageMs = detailed?.lastFetchedAt
+    ? now - new Date(detailed.lastFetchedAt).getTime()
+    : Infinity;
+  const isStale = !detailed || ageMs > ttl;
+
+  if (isStale) {
+    try {
+      const fresh = await fetchLaunchDetailed(listLaunch.id);
+      if (fresh) detailed = fresh;
+    } catch (err: any) {
+      console.warn(
+        `⚠️  [DETAILED_FETCH] Failed for ${listLaunch.id}: ${err?.message || 'unknown'}. Serving cache.`
+      );
+    }
   } else {
-    console.log(`✅ [FOUND] Launch "${launch.name}" retrieved successfully`);
+    const ageMin = Math.round(ageMs / 60000);
+    console.log(
+      `📦 [DETAILED_CACHE] HIT for "${listLaunch.name}" (age ${ageMin}min, critical=${inCriticalWindow})`
+    );
   }
-  
-  return launch;
+
+  // Graceful fallback: if we have no detailed doc at all (first visit + fetch
+  // failed), return the list doc so the page still renders something.
+  return detailed || listLaunch;
+};
+
+export const getUpcomingLaunches = async (limit = 30) => {
+  await connectDB();
+  const now = new Date();
+  const launches = await Launch.find({ date: { $gte: now } })
+    .sort({ date: 1 })
+    .limit(limit)
+    .lean();
+  console.log(`📊 [QUERY] Returning ${launches.length} upcoming launches`);
+  return launches;
+};
+
+export const getLaunchById = async (slug: string) => {
+  await connectDB();
+  return Launch.findOne({ slug }).lean();
 };

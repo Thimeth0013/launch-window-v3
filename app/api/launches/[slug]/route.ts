@@ -1,59 +1,50 @@
 // app/api/launches/[slug]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '../../../lib/db/mongodb';
-import Launch from '../../../lib/db/models/Launch';
+import { getOrFetchLaunchDetailedBySlug } from '../../../lib/services/launchService';
 
-export const revalidate = 1800; // Revalidate every 30 minutes
+export const revalidate = 1800;
 
 // GET /api/launches/[slug]
+// Reads the detailed payload via the lazy accessor — getOrFetchLaunchDetailedBySlug
+// handles cache lookup, on-demand detailed fetching, and freshness (tighter
+// TTL inside the T-2h critical window).
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
     await connectDB();
-    
-    // Await the params promise
     const { slug } = await params;
-    console.log(`🔍 [DETAIL_REQUEST] Received request for launch slug: ${slug}`);
-    
-    const launch = await Launch.findOne({ slug }).select('-_id').lean();
-    
+    console.log(`🔍 [DETAIL_REQUEST] slug=${slug}`);
+
+    const launch: any = await getOrFetchLaunchDetailedBySlug(slug);
     if (!launch) {
-      console.log(`❌ [NOT_FOUND] Launch with slug ${slug} not found in database`);
       return NextResponse.json(
         { message: 'Launch not found', requestedSlug: slug },
         { status: 404 }
       );
     }
-    
-    // Check for scrubs if launch is within critical window (T-2h to T+10min)
+
+    // Tighter CDN cache while we're inside the T-2h → T+10min critical window;
+    // 30-min cache otherwise.
     const now = new Date();
-    const launchDate = new Date(launch.date);
-    const hoursUntilLaunch = (launchDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
-    if (hoursUntilLaunch >= -0.167 && hoursUntilLaunch <= 2) {
-      console.log(`⏰ [CRITICAL] Launch at T-${hoursUntilLaunch.toFixed(2)}h - checking for updates...`);
-      // Import dynamically to avoid circular dependencies
-      const { checkForScrub } = await import('../../../lib/services/scrubDetectionScheduler');
-      const updatedLaunch = await checkForScrub(launch);
-      
-      return NextResponse.json(updatedLaunch, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' // 5 min cache during critical window
-        }
-      });
-    }
-    
-    console.log(`✅ [SUCCESS] Returning launch: ${launch.name}`);
-    
+    const launchDate = launch.date ? new Date(launch.date) : null;
+    const hoursUntilLaunch = launchDate
+      ? (launchDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+      : null;
+    const inCritical =
+      hoursUntilLaunch !== null && hoursUntilLaunch >= -0.167 && hoursUntilLaunch <= 2;
+
     return NextResponse.json(launch, {
       headers: {
-        'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' // 30 min cache normally
-      }
+        'Cache-Control': inCritical
+          ? 'public, s-maxage=300, stale-while-revalidate=600'
+          : 'public, s-maxage=1800, stale-while-revalidate=3600',
+      },
     });
   } catch (error: any) {
-    console.error(`❌ [DETAIL_ERROR] Error fetching launch:`, error);
+    console.error('❌ [DETAIL_ERROR]', error);
     return NextResponse.json(
       { message: 'Error fetching launch details', error: error.message },
       { status: 500 }
