@@ -18,6 +18,17 @@ const CRITICAL_REFRESH_TTL_MS = 5 * 60 * 1000;
 // How many launches to keep in the list manifest.
 const MANIFEST_LIMIT = 30;
 
+// --- Idle-time prefetch tuning -------------------------------------------
+// Reserve this many API calls per hour for user-triggered detail fetches.
+// The prefetch only spends `remaining - PREFETCH_RESERVE_CALLS` of the
+// hourly budget so a spike of real visitors doesn't run into the limit.
+const PREFETCH_RESERVE_CALLS = 5;
+// Hard upper bound on how many launches one prefetch run will warm, even if
+// the budget is huge — keeps the warm-up bounded and predictable.
+const PREFETCH_MAX_PER_RUN = 10;
+// Small delay between prefetch fetches to be polite to the API.
+const PREFETCH_INTER_CALL_MS = 500;
+
 interface ApiLaunchList {
   id: string;
   slug: string;
@@ -137,6 +148,8 @@ export const fetchUpcomingLaunches = async () => {
 
 // Runs the hourly global sync if it's stale. Safe to call from any route or page —
 // failures are swallowed so callers can still serve whatever is in Mongo.
+// Detailed-payload prefetching is no longer triggered here; it runs from the
+// dedicated cron endpoint at /api/cron/prefetch instead.
 export const ensureFreshLaunches = async () => {
   await connectDB();
   const now = new Date();
@@ -162,6 +175,109 @@ export const ensureFreshLaunches = async () => {
     console.warn('⚠️  [SYNC_ERROR] Failed to sync, serving cached data:', syncError);
   }
 };
+
+// --- Throttle status & idle-time prefetch --------------------------------
+
+interface ThrottleStatus {
+  limit: number;
+  remaining: number;
+}
+
+// Calling /api-throttle/ does NOT count against the budget itself (TSD
+// excludes monitoring queries). Tolerant of small response-shape differences.
+async function fetchThrottleStatus(): Promise<ThrottleStatus | null> {
+  try {
+    const res = await axios.get(`${LAUNCH_LIBRARY_API}/api-throttle/`, {
+      timeout: 10000,
+    });
+    const data: any = res.data;
+    const info = data?.your_request ?? data;
+    const limit = info?.limit;
+    const remaining = info?.remaining;
+    if (typeof limit !== 'number' || typeof remaining !== 'number') {
+      console.warn('⚠️  [THROTTLE] Unexpected response shape:', data);
+      return null;
+    }
+    return { limit, remaining };
+  } catch (err: any) {
+    console.warn(`⚠️  [THROTTLE] Failed to read throttle: ${err?.message || 'unknown'}`);
+    return null;
+  }
+}
+
+/**
+ * Spend any unused hourly API budget warming detailed payloads for the
+ * upcoming launches closest to T-0 (most likely to be opened next). Without
+ * this the unused calls expire silently at the hour boundary; with this they
+ * pre-build the cache so a real-traffic spike doesn't have to.
+ *
+ * Skips launches whose `LaunchDetailed` cache is still inside the normal TTL.
+ * Reserves `PREFETCH_RESERVE_CALLS` for user-triggered detail fetches during
+ * the rest of the hour.
+ */
+export const prefetchDetailedLaunches = async () => {
+  await connectDB();
+
+  const throttle = await fetchThrottleStatus();
+  if (!throttle) {
+    console.log('🎯 [PREFETCH] Throttle status unavailable — skipping prefetch');
+    return;
+  }
+
+  const budget = Math.max(0, throttle.remaining - PREFETCH_RESERVE_CALLS);
+  if (budget === 0) {
+    console.log(
+      `🎯 [PREFETCH] Budget ${throttle.remaining}/${throttle.limit} − reserve ${PREFETCH_RESERVE_CALLS} = 0. Skipping.`
+    );
+    return;
+  }
+
+  const slots = Math.min(budget, PREFETCH_MAX_PER_RUN);
+  console.log(
+    `🎯 [PREFETCH] ${throttle.remaining}/${throttle.limit} remaining, reserving ${PREFETCH_RESERVE_CALLS}, prefetching up to ${slots} launches`
+  );
+
+  // Closest-to-T0 upcoming launches first. Over-fetch the list so we can skip
+  // launches that already have fresh cache without running out of candidates.
+  const candidates = await Launch.find({ date: { $gte: new Date() } })
+    .sort({ date: 1 })
+    .limit(PREFETCH_MAX_PER_RUN * 3)
+    .select('id name')
+    .lean();
+
+  let fetched = 0;
+  let skipped = 0;
+
+  for (const candidate of candidates) {
+    if (fetched >= slots) break;
+
+    const cached: any = await LaunchDetailed.findOne({ id: candidate.id })
+      .select('lastFetchedAt')
+      .lean();
+    if (cached?.lastFetchedAt) {
+      const ageMs = Date.now() - new Date(cached.lastFetchedAt).getTime();
+      if (ageMs < DETAILED_REFRESH_TTL_MS) {
+        skipped++;
+        continue;
+      }
+    }
+
+    try {
+      await fetchLaunchDetailed(candidate.id);
+      fetched++;
+      await new Promise((r) => setTimeout(r, PREFETCH_INTER_CALL_MS));
+    } catch (err: any) {
+      console.warn(
+        `⚠️  [PREFETCH] Failed for ${candidate.id} (${candidate.name}): ${err?.message || 'unknown'}`
+      );
+    }
+  }
+
+  console.log(
+    `✅ [PREFETCH] Done — fetched ${fetched}, skipped ${skipped} (cache still fresh)`
+  );
+};
+
 
 /**
  * Fetch a single launch in DETAILED mode and upsert into LaunchDetailed.

@@ -75,7 +75,7 @@ function BlockApod({ apod }: { apod: Apod | null }) {
           <img
             src={imageSrc}
             alt={apod?.title || 'NASA APOD'}
-            className="absolute inset-0 w-full h-full object-cover opacity-70 transition-all duration-700 group-hover:opacity-90 group-hover:scale-[1.02]"
+            className="absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:opacity-60 group-hover:scale-[1.02]"
           />
           <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent" />
           <div className="absolute inset-0 bg-linear-to-r from-black/50 via-transparent to-transparent" />
@@ -86,7 +86,6 @@ function BlockApod({ apod }: { apod: Apod | null }) {
         </div>
       )}
 
-      <div className="absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2 border-[#FF6B35] z-10 pointer-events-none" />
       <div className="absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2 border-[#FF6B35] z-10 pointer-events-none" />
 
       <div className="absolute top-4 left-12 z-10 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.4em]">
@@ -164,7 +163,7 @@ function BlockLaunch({ launch }: { launch: any }) {
           <img
             src={launch.image.image_url}
             alt={launch.name}
-            className="absolute inset-0 w-full h-full object-cover opacity-40 transition-all duration-700 group-hover:opacity-60 group-hover:scale-[1.02]"
+            className="absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:opacity-60 group-hover:scale-[1.02]"
           />
           <div className="absolute inset-0 bg-linear-to-r from-black via-black/60 to-black/30" />
           <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent" />
@@ -172,7 +171,6 @@ function BlockLaunch({ launch }: { launch: any }) {
       )}
 
       <div className="absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2 border-[#18BBF7] z-10 pointer-events-none" />
-      <div className="absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2 border-[#18BBF7]/0 group-hover:border-[#18BBF7] transition-colors duration-500 z-10 pointer-events-none" />
 
       <div className="absolute top-4 left-4 z-10 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.4em]">
         <span className="font-black text-[#18BBF7]">[02]</span>
@@ -245,7 +243,7 @@ function BlockArticle({ article }: { article: any }) {
           <img
             src={article.image_url}
             alt={article.title}
-            className="absolute inset-0 w-full h-full object-cover opacity-30 transition-all duration-700 group-hover:opacity-50 group-hover:scale-[1.02]"
+            className="absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:opacity-50 group-hover:scale-[1.02]"
           />
           <div className="absolute inset-0 bg-linear-to-r from-black via-black/70 to-black/40" />
           <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent" />
@@ -253,7 +251,6 @@ function BlockArticle({ article }: { article: any }) {
       )}
 
       <div className="absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2 border-[#FF6B35] z-10 pointer-events-none" />
-      <div className="absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2 border-[#FF6B35]/0 group-hover:border-[#FF6B35] transition-colors duration-500 z-10 pointer-events-none" />
 
       <div className="absolute top-4 right-4 z-10 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.4em]">
         <span className="text-zinc-300 font-bold hidden sm:inline">Orbital News Feed</span>
