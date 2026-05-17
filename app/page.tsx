@@ -42,7 +42,7 @@ export default async function Home() {
   ]);
 
   return (
-    <div className="h-[100dvh] w-full bg-black text-white selection:bg-[#FF6B35] selection:text-black flex flex-col md:overflow-hidden">
+    <div className="h-dvh w-full bg-black text-white selection:bg-[#FF6B35] selection:text-black flex flex-col md:overflow-hidden">
       <AppHeader />
 
       {/* BLOCK GRID — desktop: 12-col / 2-row constrained to viewport.
@@ -284,7 +284,7 @@ function BlockArticle({ article }: { article: any }) {
             href="/articles"
             className="font-mono text-[9px] text-zinc-500 hover:text-[#18BBF7] uppercase tracking-widest transition-colors"
           >
-            Archive.All →
+            All Articles →
           </Link>
           {article.url && (
             <a
