@@ -36,7 +36,7 @@ export default function StarshipClientView({ data }: { data: any }) {
 
   useEffect(() => {
     if (activeTab !== 'timeline') return;
-    
+
     let observer: IntersectionObserver;
     const timeout = setTimeout(() => {
       observer = new IntersectionObserver(
@@ -213,9 +213,9 @@ export default function StarshipClientView({ data }: { data: any }) {
                 {sortedYears.map((year) => {
                   const isActive = activeYear === year;
                   return (
-                    <a 
-                      key={year} 
-                      href={`#year-${year}`} 
+                    <a
+                      key={year}
+                      href={`#year-${year}`}
                       onClick={(e) => {
                         e.preventDefault();
                         document.getElementById(`year-${year}`)?.scrollIntoView({ behavior: 'smooth' });
@@ -491,7 +491,7 @@ function TimelineEventCard({ item }: { item: any }) {
           <OptimizedImage
             src={imageUrl}
             alt={item.name}
-            className="grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+            className=" opacity-70 group-hover:opacity-100 transition-all duration-700"
           />
         </div>
       )}
