@@ -50,22 +50,24 @@ export default function StarshipClientView({ data }: { data: any }) {
 
   const activeBoosters = vehicles.filter((v: any) => {
     const status = (v.status?.name || '').toLowerCase();
-    return status.includes('active') || status.includes('proven') || status.includes('construction') || status.includes('testing');
+    const isHistorical = status.includes('retired') || status.includes('destroyed') || status.includes('scrapped') || status.includes('lost');
+    return !isHistorical;
   });
 
   const historicalBoosters = vehicles.filter((v: any) => {
     const status = (v.status?.name || '').toLowerCase();
-    return !(status.includes('active') || status.includes('proven') || status.includes('construction') || status.includes('testing'));
+    return status.includes('retired') || status.includes('destroyed') || status.includes('scrapped') || status.includes('lost');
   });
 
   const activeShips = orbiters.filter((o: any) => {
     const status = (o.status?.name || '').toLowerCase();
-    return status.includes('active') || status.includes('construction') || status.includes('testing');
+    const isHistorical = status.includes('retired') || status.includes('destroyed') || status.includes('scrapped') || status.includes('lost');
+    return !isHistorical;
   });
 
   const historicalShips = orbiters.filter((o: any) => {
     const status = (o.status?.name || '').toLowerCase();
-    return !(status.includes('active') || status.includes('construction') || status.includes('testing'));
+    return status.includes('retired') || status.includes('destroyed') || status.includes('scrapped') || status.includes('lost');
   });
 
   return (
@@ -134,10 +136,21 @@ export default function StarshipClientView({ data }: { data: any }) {
       {/* ====== TAB CONTENT ====== */}
 
       {activeTab === 'timeline' && (
-        <div className="space-y-12">
-          {allTimelineItems.map((item, i) => (
-            <TimelineEventCard key={`${item._bucket}-${item._type}-${item.id || i}`} item={item} />
-          ))}
+        <div className="relative border-l border-zinc-800 ml-4 md:ml-8 space-y-12 pb-12 mt-4">
+          {allTimelineItems.map((item, i) => {
+            const isUpcoming = item._bucket === 'upcoming';
+            const nodeClass = isUpcoming 
+              ? 'border-[#FF6B35] bg-[#FF6B35]/20 shadow-[0_0_10px_rgba(255,107,53,0.5)]'
+              : 'border-zinc-500 bg-zinc-900 group-hover:border-white';
+
+            return (
+              <div key={`${item._bucket}-${item._type}-${item.id || i}`} className="relative pl-8 md:pl-12 group">
+                <div className={`absolute w-4 h-4 rounded-full -left-[9px] top-6 border-2 transition-colors duration-500 z-10 ${nodeClass}`}></div>
+                <div className="absolute h-px w-4 md:w-8 bg-zinc-800 left-0 top-8 group-hover:bg-zinc-600 transition-colors duration-500"></div>
+                <TimelineEventCard item={item} />
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -504,6 +517,9 @@ function VehicleCard({ vehicle }: { vehicle: StarshipVehicle }) {
             value={`${vehicle.successful_landings ?? 0}/${vehicle.attempted_landings ?? 0}`}
           />
           <Stat label="Proven" value={vehicle.flight_proven ? 'YES' : 'NO'} />
+          {vehicle.first_launch_date && <Stat label="1st Launch" value={new Date(vehicle.first_launch_date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' })} />}
+          {vehicle.last_launch_date && <Stat label="Last Launch" value={new Date(vehicle.last_launch_date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' })} />}
+          {vehicle.fastest_turnaround && <Stat label="Fast Turn" value={formatDuration(vehicle.fastest_turnaround)} />}
         </div>
       </div>
     </article>
@@ -569,6 +585,9 @@ function OrbiterCard({ orbiter }: { orbiter: StarshipOrbiter }) {
           <Stat label="Flights" value={orbiter.flights_count ?? 0} />
           <Stat label="In Space" value={formatDuration(orbiter.time_in_space)} />
           <Stat label="Docked" value={formatDuration(orbiter.time_docked)} />
+          {(orbiter.spacecraft_config as any)?.type?.name && <Stat label="Type" value={(orbiter.spacecraft_config as any).type.name} className="col-span-2" />}
+          {orbiter.mission_ends_count !== undefined && <Stat label="Mission Ends" value={orbiter.mission_ends_count} />}
+          {orbiter.fastest_turnaround && <Stat label="Fast Turn" value={formatDuration(orbiter.fastest_turnaround)} />}
         </div>
       </div>
     </article>
@@ -579,9 +598,9 @@ function OrbiterCard({ orbiter }: { orbiter: StarshipOrbiter }) {
 /* Small helpers                                                       */
 /* ------------------------------------------------------------------ */
 
-function Stat({ label, value }: { label: string; value: any }) {
+function Stat({ label, value, className }: { label: string; value: any; className?: string }) {
   return (
-    <div className="bg-white/[0.02] border border-white/5 p-2">
+    <div className={`bg-white/[0.02] border border-white/5 p-2 ${className || ''}`}>
       <div className="text-xs md:text-sm font-black text-white tabular-nums truncate">
         {value ?? '—'}
       </div>
