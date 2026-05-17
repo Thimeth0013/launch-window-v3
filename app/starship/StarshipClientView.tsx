@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  Rocket,
   Radio,
-  Calendar,
   AlertTriangle,
   Megaphone,
   ArrowUpRight,
@@ -33,6 +31,34 @@ export default function StarshipClientView({ data }: { data: any }) {
   const orbiters = data.orbiters || [];
   const upcoming = data.upcoming || { launches: [], events: [] };
   const previous = data.previous || { launches: [], events: [] };
+
+  const [activeYear, setActiveYear] = useState<string>('');
+
+  useEffect(() => {
+    if (activeTab !== 'timeline') return;
+    
+    let observer: IntersectionObserver;
+    const timeout = setTimeout(() => {
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              setActiveYear(entry.target.id.replace('year-', ''));
+            }
+          });
+        },
+        { rootMargin: '-20% 0px -70% 0px' }
+      );
+
+      const elements = document.querySelectorAll('[id^="year-"]');
+      elements.forEach(el => observer.observe(el));
+    }, 100);
+
+    return () => {
+      clearTimeout(timeout);
+      if (observer) observer.disconnect();
+    };
+  }, [activeTab]);
 
   const tabs = [
     { id: 'timeline', label: 'Timeline' },
@@ -75,9 +101,8 @@ export default function StarshipClientView({ data }: { data: any }) {
       {/* ====== HERO ====== */}
       <section className="mb-8 md:mb-12">
         <div className="flex items-center gap-3 mb-4">
-          <Rocket className="w-4 h-4 text-[#FF6B35]" />
           <span className="font-mono text-[10px] text-[#FF6B35] uppercase tracking-[0.5em]">
-            Vehicle Dashboard
+            Excitement Guaranteed
           </span>
         </div>
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-black uppercase tracking-tighter mb-4 leading-[0.9]">
@@ -135,24 +160,79 @@ export default function StarshipClientView({ data }: { data: any }) {
 
       {/* ====== TAB CONTENT ====== */}
 
-      {activeTab === 'timeline' && (
-        <div className="relative border-l border-zinc-800 ml-4 md:ml-8 space-y-12 pb-12 mt-4">
-          {allTimelineItems.map((item, i) => {
-            const isUpcoming = item._bucket === 'upcoming';
-            const nodeClass = isUpcoming 
-              ? 'border-[#FF6B35] bg-[#FF6B35]/20 shadow-[0_0_10px_rgba(255,107,53,0.5)]'
-              : 'border-zinc-500 bg-zinc-900 group-hover:border-white';
+      {activeTab === 'timeline' && (() => {
+        const groupedByYear = allTimelineItems.reduce((acc: any, item: any) => {
+          const dt = item.date ? new Date(item.date) : null;
+          const year = dt ? dt.getFullYear().toString() : 'Unknown';
+          if (!acc[year]) acc[year] = [];
+          acc[year].push(item);
+          return acc;
+        }, {});
 
-            return (
-              <div key={`${item._bucket}-${item._type}-${item.id || i}`} className="relative pl-8 md:pl-12 group">
-                <div className={`absolute w-4 h-4 rounded-full -left-[9px] top-6 border-2 transition-colors duration-500 z-10 ${nodeClass}`}></div>
-                <div className="absolute h-px w-4 md:w-8 bg-zinc-800 left-0 top-8 group-hover:bg-zinc-600 transition-colors duration-500"></div>
-                <TimelineEventCard item={item} />
+        const sortedYears = Object.keys(groupedByYear).sort((a, b) => {
+          if (a === 'Unknown') return 1;
+          if (b === 'Unknown') return -1;
+          return Number(b) - Number(a);
+        });
+
+        return (
+          <div className="flex gap-4 md:gap-8 lg:gap-16 items-start">
+
+            {/* Main Timeline */}
+            <div className="flex-1 relative border-l border-zinc-800 ml-4 md:ml-8 pb-12 mt-4 space-y-24">
+              {sortedYears.map((year) => (
+                <div key={year} id={`year-${year}`} className="scroll-mt-32 space-y-12">
+                  <div className="relative pl-8 md:pl-12">
+                    {/* Year Marker */}
+                    <div className="absolute -left-[5px] top-2.5 w-2.5 h-2.5 rounded-full bg-zinc-600 outline outline-4 outline-black"></div>
+                    <h2 className="font-mono text-xl md:text-3xl font-black text-white/50 tracking-widest">{year}</h2>
+                  </div>
+
+                  {groupedByYear[year].map((item: any, i: number) => {
+                    const isUpcoming = item._bucket === 'upcoming';
+                    const nodeClass = isUpcoming
+                      ? 'border-[#FF6B35] bg-[#FF6B35]/20 shadow-[0_0_10px_rgba(255,107,53,0.5)]'
+                      : 'border-zinc-500 bg-zinc-900 group-hover:border-white';
+
+                    return (
+                      <div key={`${item._bucket}-${item._type}-${item.id || i}`} className="relative pl-8 md:pl-12 group">
+                        <div className={`absolute w-4 h-4 rounded-full -left-[9px] top-6 border-2 transition-colors duration-500 z-10 ${nodeClass}`}></div>
+                        <div className="absolute h-px w-4 md:w-8 bg-zinc-800 left-0 top-8 group-hover:bg-zinc-600 transition-colors duration-500"></div>
+                        <TimelineEventCard item={item} />
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* Mini Timeline (Sticky Nav) */}
+            <nav className="hidden lg:block w-32 shrink-0 sticky top-32">
+              <div className="border-l border-zinc-800 pl-4 py-2 space-y-6">
+                <span className="block font-mono text-[10px] text-zinc-600 uppercase tracking-widest mb-4">Jump To</span>
+                {sortedYears.map((year) => {
+                  const isActive = activeYear === year;
+                  return (
+                    <a 
+                      key={year} 
+                      href={`#year-${year}`} 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById(`year-${year}`)?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className={`block font-mono text-sm transition-all relative group ${isActive ? 'text-white font-black scale-105 origin-left' : 'text-zinc-400 hover:text-white'}`}
+                    >
+                      <span className={`absolute -left-[21px] top-1.5 w-2 h-2 rounded-full transition-all ${isActive ? 'bg-[#FF6B35] shadow-[0_0_8px_rgba(255,107,53,0.8)]' : 'bg-zinc-800 group-hover:bg-white'}`}></span>
+                      {year}
+                    </a>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      )}
+            </nav>
+
+          </div>
+        );
+      })()}
 
       {activeTab === 'streams' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">

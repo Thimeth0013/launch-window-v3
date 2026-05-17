@@ -9,7 +9,7 @@ export default async function StarshipPage() {
   const data = await getStarshipDashboard();
 
   return (
-    <div className="relative min-h-screen bg-black text-white selection:bg-[#FF6B35] selection:text-black pb-24 overflow-hidden">
+    <div className="relative min-h-screen bg-black text-white selection:bg-[#FF6B35] selection:text-black pb-24 overflow-clip">
       <div className="fixed inset-0 z-0 pointer-events-none">
         <Particles
           particleColors={['#ffffff']}
