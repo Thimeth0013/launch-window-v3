@@ -17,6 +17,12 @@ import type {
   StarshipStream,
 } from '@/app/lib/services/starshipService';
 
+function extractSerialNum(str?: string) {
+  if (!str) return 0;
+  const match = str.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+}
+
 export default function StarshipClientView({ data }: { data: any }) {
   const [activeTab, setActiveTab] = useState<'timeline' | 'streams' | 'ships' | 'boosters'>('timeline');
   const [shipsFilter, setShipsFilter] = useState<'active' | 'historical'>('active');
@@ -27,8 +33,27 @@ export default function StarshipClientView({ data }: { data: any }) {
   const liveStreams = data.live_streams || [];
   const roadClosures = data.road_closures || [];
   const notices = data.notices || [];
-  const vehicles = data.vehicles || [];
-  const orbiters = data.orbiters || [];
+
+  const rawVehicles = data.vehicles || [];
+  const rawOrbiters = data.orbiters || [];
+
+  const vehicles: any[] = [];
+  const orbiters: any[] = [...rawOrbiters];
+
+  rawVehicles.forEach((v: any) => {
+    const sn = (v.serial_number || v.name || '').toUpperCase();
+    if (sn.startsWith('SN') || sn.startsWith('SHIP') || sn.includes('STARHOPPER') || sn.startsWith('MK')) {
+      orbiters.push({
+        ...v,
+        name: v.name || v.serial_number,
+        description: v.details || v.description,
+        flights_count: v.flights,
+        spacecraft_config: v.launcher_config || { name: 'Starship Prototype' },
+      });
+    } else {
+      vehicles.push(v);
+    }
+  });
   const upcoming = data.upcoming || { launches: [], events: [] };
   const previous = data.previous || { launches: [], events: [] };
 
@@ -74,27 +99,22 @@ export default function StarshipClientView({ data }: { data: any }) {
     ...previous.events.map((e: any) => ({ ...e, _type: 'event', _bucket: 'previous' })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const activeBoosters = vehicles.filter((v: any) => {
-    const status = (v.status?.name || '').toLowerCase();
-    const isHistorical = status.includes('retired') || status.includes('destroyed') || status.includes('scrapped') || status.includes('lost');
-    return !isHistorical;
-  });
+  const isHistoricalStatus = (statusStr: string) => {
+    const s = statusStr.toLowerCase();
+    return s.includes('retired') || s.includes('destroyed') || s.includes('scrapped') || s.includes('lost') || s.includes('converted');
+  };
 
-  const historicalBoosters = vehicles.filter((v: any) => {
-    const status = (v.status?.name || '').toLowerCase();
-    return status.includes('retired') || status.includes('destroyed') || status.includes('scrapped') || status.includes('lost');
-  });
+  const activeBoosters = vehicles.filter((v: any) => !isHistoricalStatus(v.status?.name || ''))
+    .sort((a: any, b: any) => extractSerialNum(b.serial_number) - extractSerialNum(a.serial_number));
 
-  const activeShips = orbiters.filter((o: any) => {
-    const status = (o.status?.name || '').toLowerCase();
-    const isHistorical = status.includes('retired') || status.includes('destroyed') || status.includes('scrapped') || status.includes('lost');
-    return !isHistorical;
-  });
+  const historicalBoosters = vehicles.filter((v: any) => isHistoricalStatus(v.status?.name || ''))
+    .sort((a: any, b: any) => extractSerialNum(b.serial_number) - extractSerialNum(a.serial_number));
 
-  const historicalShips = orbiters.filter((o: any) => {
-    const status = (o.status?.name || '').toLowerCase();
-    return status.includes('retired') || status.includes('destroyed') || status.includes('scrapped') || status.includes('lost');
-  });
+  const activeShips = orbiters.filter((o: any) => !isHistoricalStatus(o.status?.name || ''))
+    .sort((a: any, b: any) => extractSerialNum(b.serial_number || b.name) - extractSerialNum(a.serial_number || a.name));
+
+  const historicalShips = orbiters.filter((o: any) => isHistoricalStatus(o.status?.name || ''))
+    .sort((a: any, b: any) => extractSerialNum(b.serial_number || b.name) - extractSerialNum(a.serial_number || a.name));
 
   return (
     <>
@@ -109,7 +129,7 @@ export default function StarshipClientView({ data }: { data: any }) {
           Starship<span className="text-[#FF6B35]">.</span>
         </h1>
         <p className="font-mono text-[11px] md:text-xs text-zinc-500 uppercase tracking-[0.2em] max-w-5xl">
-          Boca Chica development tracker //{' '}
+          Starbase, Tx //{' '}
           <span className="text-zinc-300">{vehicles.length}</span> boosters //{' '}
           <span className="text-zinc-300">{orbiters.length}</span> ships //{' '}
           <span className="text-zinc-300">{previous.launches.length}</span> previous launch{previous.launches.length === 1 ? '' : 'es'} //{' '}
@@ -138,24 +158,63 @@ export default function StarshipClientView({ data }: { data: any }) {
       )}
 
       {/* ====== TABS NAVIGATION ====== */}
-      <div className="flex flex-wrap gap-2 md:gap-4 mb-12 border-b border-white/10 pb-4">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`font-mono text-[11px] uppercase tracking-[0.2em] px-4 py-2 transition-colors flex items-center gap-2 ${activeTab === tab.id
-              ? 'bg-white text-black font-black'
-              : 'text-zinc-500 hover:text-white bg-white/5 hover:bg-white/10'
-              }`}
-          >
-            {tab.label}
-            {tab.count !== undefined && tab.count > 0 && (
-              <span className={`px-1.5 py-0.5 text-[9px] ${activeTab === tab.id ? 'bg-black text-white' : 'bg-white/10 text-white'}`}>
-                {tab.count}
-              </span>
+      <div className="flex flex-wrap items-center justify-between mb-12 border-b border-white/10 pb-4 gap-4">
+        <div className="flex flex-wrap gap-2 md:gap-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`font-mono text-[11px] uppercase tracking-[0.2em] px-4 py-2 transition-colors flex items-center gap-2 ${activeTab === tab.id
+                ? 'bg-white text-black font-black'
+                : 'text-zinc-500 hover:text-white bg-white/5 hover:bg-white/10'
+                }`}
+            >
+              {tab.label}
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className={`px-1.5 py-0.5 text-[9px] ${activeTab === tab.id ? 'bg-black text-white' : 'bg-white/10 text-white'}`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Sub-filters (Visible only for Ships or Boosters) */}
+        {(activeTab === 'ships' || activeTab === 'boosters') && (
+          <div className="flex gap-2 p-1 bg-white/5 backdrop-blur ml-auto">
+            {activeTab === 'ships' ? (
+              <>
+                <button
+                  onClick={() => { setShipsFilter('active'); setVisibleShips(12); }}
+                  className={`font-mono text-[10px] uppercase tracking-widest px-4 py-2 transition-colors ${shipsFilter === 'active' ? 'bg-[#18BBF7] text-black font-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                  Active / Flight-Ready
+                </button>
+                <button
+                  onClick={() => { setShipsFilter('historical'); setVisibleShips(12); }}
+                  className={`font-mono text-[10px] uppercase tracking-widest px-4 py-2 transition-colors ${shipsFilter === 'historical' ? 'bg-zinc-700 text-white font-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                  Historical / Retired
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => { setBoostersFilter('active'); setVisibleBoosters(12); }}
+                  className={`font-mono text-[10px] uppercase tracking-widest px-4 py-2 transition-colors ${boostersFilter === 'active' ? 'bg-[#FF6B35] text-black font-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                  Active / Flight-Ready
+                </button>
+                <button
+                  onClick={() => { setBoostersFilter('historical'); setVisibleBoosters(12); }}
+                  className={`font-mono text-[10px] uppercase tracking-widest px-4 py-2 transition-colors ${boostersFilter === 'historical' ? 'bg-zinc-700 text-white font-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                  Historical / Retired
+                </button>
+              </>
             )}
-          </button>
-        ))}
+          </div>
+        )}
       </div>
 
       {/* ====== TAB CONTENT ====== */}
@@ -250,28 +309,6 @@ export default function StarshipClientView({ data }: { data: any }) {
 
       {activeTab === 'ships' && (
         <div className="space-y-8">
-          <div className="flex gap-2 p-1 bg-white/5 inline-flex backdrop-blur">
-            <button
-              onClick={() => {
-                setShipsFilter('active');
-                setVisibleShips(12);
-              }}
-              className={`font-mono text-[10px] uppercase tracking-widest px-4 py-2 transition-colors ${shipsFilter === 'active' ? 'bg-[#18BBF7] text-black font-black' : 'text-zinc-400 hover:text-white'
-                }`}
-            >
-              Active / Flight-Ready
-            </button>
-            <button
-              onClick={() => {
-                setShipsFilter('historical');
-                setVisibleShips(12);
-              }}
-              className={`font-mono text-[10px] uppercase tracking-widest px-4 py-2 transition-colors ${shipsFilter === 'historical' ? 'bg-zinc-700 text-white font-black' : 'text-zinc-400 hover:text-white'
-                }`}
-            >
-              Historical Prototypes
-            </button>
-          </div>
 
           {shipsFilter === 'active' && activeShips.length > 0 && (
             <>
@@ -312,39 +349,11 @@ export default function StarshipClientView({ data }: { data: any }) {
               No historical ships found
             </div>
           )}
-
-          {orbiters.length === 0 && (
-            <div className="py-20 text-center font-mono text-sm text-zinc-600 uppercase tracking-widest border border-dashed border-zinc-800">
-              No ships found
-            </div>
-          )}
         </div>
       )}
 
       {activeTab === 'boosters' && (
         <div className="space-y-8">
-          <div className="flex gap-2 p-1 bg-white/5 inline-flex backdrop-blur">
-            <button
-              onClick={() => {
-                setBoostersFilter('active');
-                setVisibleBoosters(12);
-              }}
-              className={`font-mono text-[10px] uppercase tracking-widest px-4 py-2 transition-colors ${boostersFilter === 'active' ? 'bg-[#FF6B35] text-black font-black' : 'text-zinc-400 hover:text-white'
-                }`}
-            >
-              Active / Flight-Ready
-            </button>
-            <button
-              onClick={() => {
-                setBoostersFilter('historical');
-                setVisibleBoosters(12);
-              }}
-              className={`font-mono text-[10px] uppercase tracking-widest px-4 py-2 transition-colors ${boostersFilter === 'historical' ? 'bg-zinc-700 text-white font-black' : 'text-zinc-400 hover:text-white'
-                }`}
-            >
-              Historical / Retired
-            </button>
-          </div>
 
           {boostersFilter === 'active' && activeBoosters.length > 0 && (
             <>
