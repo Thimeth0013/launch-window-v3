@@ -73,7 +73,7 @@ export default async function LaunchesPage() {
           speed={0.1}
           particleBaseSize={100}
           moveParticlesOnHover
-          alphaParticles={false}
+          alphaParticles={true}
           disableRotation={false}
           pixelRatio={1}
         />

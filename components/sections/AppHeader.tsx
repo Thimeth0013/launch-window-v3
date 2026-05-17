@@ -60,6 +60,7 @@ export default function AppHeader() {
 
   const isLaunches = pathname?.startsWith('/launches');
   const isArticles = pathname?.startsWith('/articles');
+  const isStarship = pathname?.startsWith('/starship');
 
   // Home keeps its solid brutalist bar always. Internal pages start transparent
   // and switch to a glass-blur + thin bottom border once the user scrolls.
@@ -132,6 +133,12 @@ export default function AppHeader() {
           className={`transition-colors ${isArticles ? 'text-[#18BBF7]' : 'text-zinc-300 hover:text-[#18BBF7]'}`}
         >
           Articles
+        </Link>
+        <Link
+          href="/starship"
+          className={`transition-colors ${isStarship ? 'text-[#FF6B35]' : 'text-zinc-300 hover:text-[#FF6B35]'}`}
+        >
+          Starship
         </Link>
       </nav>
     </header>
