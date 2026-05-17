@@ -32,6 +32,7 @@ async function connectDB(): Promise<typeof mongoose> {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      maxPoolSize: 10,
     };
 
     console.log('🔌 [DB] Creating new connection...');
