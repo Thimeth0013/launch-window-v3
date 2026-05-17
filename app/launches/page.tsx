@@ -3,6 +3,8 @@ import LaunchList from '@/components/sections/LaunchList';
 import Particles from '@/components/Particles';
 import AppHeader from '@/components/sections/AppHeader';
 
+export const revalidate = 60;
+
 interface Launch {
   id: string;
   slug: string;

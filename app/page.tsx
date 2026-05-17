@@ -7,6 +7,8 @@ import MiniCountdown from "@/components/ui/MiniCountdown";
 import AppHeader from "@/components/sections/AppHeader";
 import HomeAnimator from "@/components/sections/HomeAnimator";
 
+export const revalidate = 60;
+
 async function getLatestLaunch() {
   try {
     let launches = await getUpcomingLaunches(1);
