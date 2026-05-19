@@ -23,7 +23,7 @@ export default function VehicleSpecsModal({ isOpen, onClose, data }: { isOpen: b
 
   const formatISOToHuman = (isoString: string) => {
     if (!isoString) return '---';
-    
+
     // Match Days, Hours, Minutes
     const days = isoString.match(/(\d+)D/)?.[1];
     const hours = isoString.match(/(\d+)H/)?.[1];
@@ -41,24 +41,24 @@ export default function VehicleSpecsModal({ isOpen, onClose, data }: { isOpen: b
     <div className="fixed inset-0 z-1000 flex items-center justify-center p-4 md:p-8">
       {/* Backdrop */}
       <div className="absolute inset-0 backdrop-blur-md" onClick={onClose} />
-      
+
       {/* Modal Content */}
       <div className="relative w-full max-w-6xl max-h-[90vh] bg-zinc-950 border border-[#18BBF7]/30 overflow-y-auto scrollbar-hide shadow-2xl shadow-cyan-500/10">
-        
+
         {/* Header Section - ROCKET IMAGE */}
         <div className="relative h-64 md:h-120 border-b border-white/10">
-          <img 
-            src={config?.image?.image_url || config?.image_url || scConfig?.image?.image_url || spacecraft?.image?.image_url } 
-            className="w-full h-full object-cover opacity-60" 
+          <img
+            src={config?.image?.image_url || config?.image_url || scConfig?.image?.image_url || spacecraft?.image?.image_url}
+            className="w-full h-full object-cover opacity-60"
             alt="Launch Vehicle"
           />
           {/* Gradient Overlay for Text Readability */}
           <div className="absolute inset-0 bg-linear-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
-          
+
           <div className="absolute bottom-8 left-8 right-8">
             <div className="flex items-center gap-2 mb-2">
-               <span className="px-2 py-0.5 bg-[#18BBF7] text-black text-[10px] font-black uppercase tracking-tighter">System Blueprint</span>
-               <span className="text-zinc-400 text-[10px] font-mono uppercase tracking-widest bg-black/40 px-2 py-0.5">ID: {String(config?.id || '').substring(0, 8)}</span>
+              <span className="px-2 py-0.5 bg-[#18BBF7] text-black text-[10px] font-black uppercase tracking-tighter">System Blueprint</span>
+              <span className="text-zinc-400 text-[10px] font-mono uppercase tracking-widest bg-black/40 px-2 py-0.5">ID: {String(config?.id || '').substring(0, 8)}</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-tighter drop-shadow-2xl">
               {config?.full_name || config?.name}
@@ -67,14 +67,14 @@ export default function VehicleSpecsModal({ isOpen, onClose, data }: { isOpen: b
               {config?.manufacturer?.name || config?.provider}
             </p>
           </div>
-          
+
           <button onClick={onClose} className="absolute top-6 right-8 p-2 hover:bg-white border border-black/10 hover:text-black bg-black text-white transition-all">
             <X size={20} />
           </button>
         </div>
 
         <div className="p-8 space-y-12">
-          
+
           {/* SECTION 1: LAUNCH VEHICLE OVERVIEW */}
           <section>
             <div className="flex items-center gap-4 mb-6">
@@ -95,7 +95,7 @@ export default function VehicleSpecsModal({ isOpen, onClose, data }: { isOpen: b
                   <SpecRow label="Successful" value={config?.successful_launches} />
                 </div>
               </div>
-              
+
               {/* Vehicle Overview */}
               <div className="lg:col-span-2 space-y-4">
                 <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Vehicle Overview</h4>
@@ -109,11 +109,11 @@ export default function VehicleSpecsModal({ isOpen, onClose, data }: { isOpen: b
           {/* SECTION 2: SPACECRAFT MODULE */}
           {scConfig && (
             <section className="relative bg-zinc-950 border border-white/5 overflow-hidden">
-              
+
               {/* BACKGROUND IMAGE LAYER */}
               <div className="absolute inset-0 z-0">
-                <img 
-                  src={scConfig?.image?.image_url || spacecraft?.image?.image_url} 
+                <img
+                  src={scConfig?.image?.image_url || spacecraft?.image?.image_url}
                   className="w-full h-full object-cover opacity-60" // Lower opacity helps text readability
                   alt="Spacecraft Module"
                 />
@@ -121,7 +121,7 @@ export default function VehicleSpecsModal({ isOpen, onClose, data }: { isOpen: b
 
               {/* CONTENT LAYER - Relative z-10 ensures it sits above the image */}
               <div className="relative z-10">
-                
+
                 {/* Header Tag */}
                 <div className="p-8 pb-0">
                   <div className="flex items-center gap-2">
@@ -136,10 +136,10 @@ export default function VehicleSpecsModal({ isOpen, onClose, data }: { isOpen: b
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Module Specs</h4>
                       <div className="space-y-2">
-                        <SpecRow label="Designation" value={scConfig?.name}/>
+                        <SpecRow label="Designation" value={scConfig?.name} />
                         <SpecRow label="Serial" value={spacecraft?.serial_number} />
                         <SpecRow label="Human Rated" value={spacecraft?.spacecraft_config?.human_rated ? "YES" : "NO"} />
-                        <SpecRow label="Crew Capacity" value={scConfig?.crew_capacity} />                    
+                        <SpecRow label="Crew Capacity" value={scConfig?.crew_capacity} />
                         <SpecRow label="Height" value={scConfig?.height ? `${scConfig.height}m` : null} />
                         <SpecRow label="Diameter" value={scConfig?.diameter ? `${scConfig.diameter}m` : null} />
                       </div>
@@ -231,13 +231,12 @@ export default function VehicleSpecsModal({ isOpen, onClose, data }: { isOpen: b
                                 {landing.landing_location?.name} ({landing.landing_location?.abbrev})
                               </span>
                             </div>
-                            <span className={`text-[8px] font-black px-1.5 py-0.5 border ${
-                              landing.attempt ? 'border-orange-500/50 text-orange-400' : 'border-zinc-500 text-zinc-500'
-                            }`}>
+                            <span className={`text-[8px] font-black px-1.5 py-0.5 border ${landing.attempt ? 'border-orange-500/50 text-orange-400' : 'border-zinc-500 text-zinc-500'
+                              }`}>
                               {landing.attempt ? 'RECOVERY_TARGET' : 'NOT_RECOVERABLE'}
                             </span>
                           </div>
-                          
+
                           <p className="text-[10px] text-zinc-400 leading-relaxed font-light mb-3">
                             {landing.description}
                           </p>
@@ -254,7 +253,7 @@ export default function VehicleSpecsModal({ isOpen, onClose, data }: { isOpen: b
               </div>
             </section>
           )}
-        
+
           {/* SECTION 4: LANDING INFO - NEW ADDITION */}
           {spacecraft_stage && (
             <LandingInfo spacecraft_stage={spacecraft_stage} />
