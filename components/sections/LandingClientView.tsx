@@ -198,6 +198,10 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
     (_ctx, contextSafe) => {
       if (!contextSafe) return;
 
+      const dynamicEls = gsap.utils.toArray<HTMLElement>('[data-dynamic-sentence]');
+      const dynamicImgs = gsap.utils.toArray<HTMLElement>('[data-dynamic-image]');
+      const dynamicDescs = gsap.utils.toArray<HTMLElement>('[data-dynamic-desc]');
+
       /* ── 1. Hero entrance timeline ──────────────────────────────── */
       // Slow 3.5s background breathing zoom runs in parallel with the main
       // timeline — feels like the camera is settling.
@@ -218,12 +222,11 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       heroTl
         // TITLE — line-mask reveal: each line lives inside overflow-hidden,
         // the inner span starts shifted down by 110% of its height and
-        // slides up to its natural position. Stagger per line.
+        // slides up to its natural position.
         .from(
-          '[data-dynamic-sentence]',
+          dynamicEls[0] || '[data-dynamic-sentence]',
           {
             yPercent: 110,
-            stagger: 0.12,
             duration: 1.3,
             ease: 'power4.out',
             immediateRender: true,
@@ -245,7 +248,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         )
         // Subtitle fade-up
         .from(
-          '[data-dynamic-desc]',
+          dynamicDescs[0] || '[data-dynamic-desc]',
           {
             opacity: 0,
             y: 20,
@@ -286,9 +289,6 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
 
       /* ── Dynamic hero sentences cycle ───────────────────────── */
       let cycleTl: gsap.core.Timeline | null = null;
-      const dynamicEls = gsap.utils.toArray<HTMLElement>('[data-dynamic-sentence]');
-      const dynamicImgs = gsap.utils.toArray<HTMLElement>('[data-dynamic-image]');
-      const dynamicDescs = gsap.utils.toArray<HTMLElement>('[data-dynamic-desc]');
 
       if (dynamicEls.length && dynamicImgs.length && dynamicDescs.length) {
         gsap.set(dynamicEls.slice(1), { autoAlpha: 0, yPercent: 8 });
@@ -599,7 +599,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
               />
 
               {/* Dynamic Paragraphs */}
-              <div className="grid items-start mb-10 md:mb-12 relative overflow-hidden py-1">
+              <div className="grid items-start mb-4 md:mb-8 relative overflow-hidden py-1">
                 {dynamicDescriptions.map((desc, i) => (
                   <p
                     key={i}
