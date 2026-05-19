@@ -33,7 +33,7 @@ function SplitChars({ text, className = '' }: { text: string; className?: string
     <span className={className} aria-label={text}>
       {words.map((word, wordIndex) => (
         <React.Fragment key={wordIndex}>
-          <span className="inline-block whitespace-nowrap">
+          <span className={`inline-block whitespace-nowrap ${wordIndex < words.length - 1 ? 'mr-[0.25em]' : ''}`}>
             {Array.from(word).map((char, charIndex) => (
               <span
                 key={charIndex}
@@ -45,7 +45,6 @@ function SplitChars({ text, className = '' }: { text: string; className?: string
               </span>
             ))}
           </span>
-          {wordIndex < words.length - 1 && ' '}
         </React.Fragment>
       ))}
     </span>
@@ -154,11 +153,33 @@ function TelemetryRow({
 export default function LandingClientView({ apod, launch, article }: LandingClientViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dynamicSentences = [
-    'Track Launches Worldwide',
-    'Mission Control Terminal',
+    'Track Global Orbital Launches',
+    'Latest Spaceflight News Feed',
     'Starship Development Feed',
-    'Real-time Telemetry & News',
-    'Global Orbital Manifest',
+    'NASA Daily Cosmic Archive',
+    'Live Mission Telemetry',
+  ];
+  const dynamicDescriptions = [
+    <>
+      A mission-control terminal for global spaceflight. Track launches worldwide, monitor countdowns, and read orbital intel — sourced live from{' '}
+      <span className="text-white font-mono text-sm tracking-widest">LAUNCH LIBRARY 2</span>.
+    </>,
+    <>
+      Stay informed with a curated feed of the latest spaceflight news and dispatches from trusted aerospace publications via the{' '}
+      <span className="text-white font-mono text-sm tracking-widest">SPACE FLIGHT NEWS API</span>.
+    </>,
+    <>
+      Dedicated telemetry for SpaceX's Starship program. Monitor vehicle statuses, historical test flights, and program milestones direct from Boca Chica — powered by{' '}
+      <span className="text-white font-mono text-sm tracking-widest">LAUNCH LIBRARY 2</span>.
+    </>,
+    <>
+      Explore the cosmos with daily astronomical observations and cosmic imagery, provided directly by{' '}
+      <span className="text-white font-mono text-sm tracking-widest">NASA's</span> APOD API.
+    </>,
+    <>
+      Comprehensive mission telemetry and live data feeds for ongoing orbital operations, webcasts via{' '}
+      <span className="text-white font-mono text-sm tracking-widest">YOUTUBE</span>, and mission control streams across the globe.
+    </>,
   ];
 
   // Helper: human-friendly relative time for "Last sync". Returns null if no date.
@@ -235,8 +256,12 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         )
         // Subtitle fade-up
         .from(
-          '[data-hero-subtitle]',
-          { opacity: 0, y: 28, duration: 0.65 },
+          '[data-dynamic-desc]',
+          { 
+            opacity: 0, 
+            y: 28, 
+            duration: 0.65,
+          },
           '-=0.55'
         )
         // CTAs
@@ -270,16 +295,36 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       /* ── Dynamic hero sentences cycle ───────────────────────── */
       let cycleTl: gsap.core.Timeline | null = null;
       const dynamicEls = gsap.utils.toArray<HTMLElement>('[data-dynamic-sentence]');
-      if (dynamicEls.length) {
-        gsap.set(dynamicEls, { autoAlpha: 0, yPercent: 8 });
-        cycleTl = gsap.timeline({ repeat: -1, repeatDelay: 0.8, delay: 0.6 });
-        dynamicEls.forEach((el) => {
-          cycleTl!.fromTo(
-            el,
-            { yPercent: 8, autoAlpha: 0 },
-            { yPercent: 0, autoAlpha: 1, duration: 0.7, ease: 'power3.out' }
-          );
-          cycleTl!.to(el, { yPercent: -8, autoAlpha: 0, duration: 0.7, ease: 'power3.in' }, '+=1.6');
+      const dynamicImgs = gsap.utils.toArray<HTMLElement>('[data-dynamic-image]');
+      const dynamicDescs = gsap.utils.toArray<HTMLElement>('[data-dynamic-desc]');
+
+      if (dynamicEls.length && dynamicImgs.length && dynamicDescs.length) {
+        gsap.set(dynamicEls.slice(1), { autoAlpha: 0, yPercent: 8 });
+        gsap.set(dynamicImgs.slice(1), { autoAlpha: 0, scale: 1.08 });
+        gsap.set(dynamicDescs.slice(1), { autoAlpha: 0, yPercent: 8 });
+
+        gsap.set(dynamicEls[0], { autoAlpha: 1, yPercent: 0 });
+        gsap.set(dynamicImgs[0], { autoAlpha: 0.55, scale: 1 });
+        gsap.set(dynamicDescs[0], { autoAlpha: 1, yPercent: 0 });
+
+        cycleTl = gsap.timeline({ repeat: -1, delay: 5.6 });
+
+        dynamicEls.forEach((el, index) => {
+          const img = dynamicImgs[index];
+          const desc = dynamicDescs[index];
+          const nextIndex = (index + 1) % dynamicEls.length;
+          const nextEl = dynamicEls[nextIndex];
+          const nextImg = dynamicImgs[nextIndex];
+          const nextDesc = dynamicDescs[nextIndex];
+
+          cycleTl!
+            .to(el, { yPercent: -8, autoAlpha: 0, filter: 'blur(8px)', duration: 0.7, ease: 'power3.inOut' })
+            .to(desc, { yPercent: -8, autoAlpha: 0, filter: 'blur(8px)', duration: 0.7, ease: 'power3.inOut' }, '<0.05')
+            .to(img, { autoAlpha: 0, scale: 0.95, filter: 'blur(8px)', duration: 0.8, ease: 'power2.inOut' }, '<-0.05')
+            .fromTo(nextEl, { yPercent: 8, autoAlpha: 0, filter: 'blur(8px)' }, { yPercent: 0, autoAlpha: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out' }, '<0.4')
+            .fromTo(nextDesc, { yPercent: 8, autoAlpha: 0, filter: 'blur(8px)' }, { yPercent: 0, autoAlpha: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out' }, '<0.05')
+            .fromTo(nextImg, { autoAlpha: 0, scale: 1.08, filter: 'blur(8px)' }, { autoAlpha: 0.55, scale: 1, filter: 'blur(0px)', duration: 1.2, ease: 'power3.out' }, '<-0.05')
+            .to({}, { duration: 5.6 }); // Hold time
         });
       }
 
@@ -507,13 +552,18 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         data-hero-section
         className="relative min-h-screen w-full overflow-hidden bg-[#050505]"
       >
-        {/* Cinematic background: distant rocket at night */}
-        <img
-          data-hero-image
-          src="/hero-rocket.png"
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover opacity-55 will-change-transform"
-        />
+        {/* Cinematic background: dynamic images corresponding to text */}
+        <div data-hero-image className="absolute inset-0 w-full h-full will-change-transform bg-[#050505]">
+          {[1, 2, 3, 4, 5].map((num, i) => (
+            <img
+              key={num}
+              data-dynamic-image
+              src={`/${num}.webp`}
+              alt=""
+              className={`absolute inset-0 w-full h-full object-cover will-change-transform ${i === 0 ? 'opacity-55' : 'opacity-0'}`}
+            />
+          ))}
+        </div>
 
         {/* Heavy gradient: dark top + dark bottom, mostly transparent middle */}
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#050505_0%,rgba(5,5,5,0.2)_35%,rgba(5,5,5,0.2)_60%,#050505_100%)]" />
@@ -533,10 +583,10 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
           <div className="w-full max-w-[1700px] mx-auto grid grid-cols-12 gap-x-6 lg:gap-x-12">
 
             {/* ── ZONE B · MAIN LEFT COLUMN ───────────────────────── */}
-            <div className="col-span-12 lg:col-span-8 xl:col-span-9">
+            <div className="col-span-12 lg:col-span-8 xl:col-span-8">
 
               {/* HERO TITLE — cycles through dynamic sentences */}
-              <h1 className="grid items-center font-display font-bold uppercase tracking-[-0.02em] mb-6 md:mb-8 overflow-hidden py-2 md:py-4">
+              <h1 className="grid items-center font-display font-bold uppercase tracking-normal mb-2 overflow-hidden py-2 md:py-4">
                 {dynamicSentences.map((s, i) => (
                   <span
                     key={i}
@@ -556,17 +606,18 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                 className="h-px w-28 bg-[#FF5500] origin-left mb-6 md:mb-8 shadow-[0_0_12px_rgba(255,85,0,0.65)]"
               />
 
-              {/* Paragraph */}
-              <p
-                data-hero-subtitle
-                className="text-base md:text-lg max-w-2xl text-[#9CA3AF] leading-relaxed mb-10 md:mb-12 will-change-transform"
-              >
-                A mission-control terminal for global spaceflight. Track launches, monitor
-                Starship, and read orbital intel — sourced live from{' '}
-                <span className="text-white font-mono text-sm tracking-widest">TSD</span>,{' '}
-                <span className="text-white font-mono text-sm tracking-widest">NASA</span>, and{' '}
-                <span className="text-white font-mono text-sm tracking-widest">SNAPI</span>.
-              </p>
+              {/* Dynamic Paragraphs */}
+              <div className="grid items-start mb-10 md:mb-12 relative overflow-hidden py-1">
+                {dynamicDescriptions.map((desc, i) => (
+                  <p
+                    key={i}
+                    data-dynamic-desc
+                    className="col-start-1 row-start-1 w-full text-base md:text-lg max-w-2xl text-[#9CA3AF] leading-relaxed will-change-transform"
+                  >
+                    {desc}
+                  </p>
+                ))}
+              </div>
 
               {/* CTAs — sharp corners, zero radius */}
               <div className="flex flex-col sm:flex-row items-start gap-4">
@@ -583,7 +634,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
             </div>
 
             {/* ── ZONE C · BOTTOM-RIGHT TELEMETRY HUD ─────────────── */}
-            <aside className="hidden lg:flex col-span-4 xl:col-span-3 flex-col gap-5 self-end pb-2 border-l border-white/10 pl-6">
+            <aside className="hidden lg:flex col-span-12 lg:col-span-4 xl:col-span-4 flex-col gap-5 self-end pb-2 border-l border-white/10 pl-6">
 
               {/* HUD header with line-draw rule */}
               <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.4em]">
@@ -597,32 +648,33 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
               {/* Data rows — values scramble on mount. Only show rows with real data. */}
               <div className="space-y-3.5">
 
-                {(() => {
-                  const parts: string[] = [];
-                  if (launch?.launch_service_provider?.name) parts.push(launch.launch_service_provider.name.toUpperCase());
-                  if (article) parts.push('SNAPI');
-                  if (apod) parts.push('NASA');
-                  const hasYoutube = !!(launch?.webcast_live || (launch?.vid_urls && launch.vid_urls.length > 0 && launch.vid_urls.some((v: any) => (v.url || '').includes('youtube'))));
-                  if (hasYoutube) parts.push('YT');
-                  const src = parts.join(' / ');
-                  return src ? (
-                    <TelemetryRow label="Sources" value={src} scrambleDelay={750} />
-                  ) : null;
-                })()}
-
                 {(launch?.name) && (
                   <TelemetryRow
                     label="Upcoming"
                     value={(launch.name || '').slice(0, 26).toUpperCase()}
-                    scrambleDelay={850}
+                    scrambleDelay={1800}
                   />
                 )}
 
                 {(() => {
                   const date = launch?.last_updated || (launch?.updatedAt ?? launch?.updated_at);
                   const s = timeAgoString(date);
-                  return s ? <TelemetryRow label="Last sync" value={s} scrambleDelay={950} /> : null;
+                  return s ? <TelemetryRow label="Last sync" value={s} scrambleDelay={1900} /> : null;
                 })()}
+
+                {(() => {
+                  const parts: string[] = [];
+                  parts.push('LL2');
+                  if (launch?.launch_service_provider?.name) parts.push(launch.launch_service_provider.name.toUpperCase());
+                  if (article) parts.push('SPACE FLIGHT NEWS API');
+                  const hasYoutube = !!(launch?.webcast_live || (launch?.vid_urls && launch.vid_urls.length > 0 && launch.vid_urls.some((v: any) => (v.url || '').includes('youtube'))));
+                  if (hasYoutube) parts.push('YOUTUBE');
+                  const src = parts.join(' / ');
+                  return src ? (
+                    <TelemetryRow label="Sources" value={src} scrambleDelay={2000} />
+                  ) : null;
+                })()}
+
               </div>
 
               {/* Bottom terminator */}
@@ -635,11 +687,24 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         </div>
 
         {/* Scroll-cue line at bottom centre */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-          <div
-            className="w-px h-12 bg-[linear-gradient(to_bottom,transparent_0%,rgba(255,85,0,0.6)_50%,transparent_100%)]"
-            style={{ animation: 'hero-scroll-cue 2.4s ease-in-out infinite' }}
-          />
+        <div 
+          onClick={() => {
+            window.scrollTo({
+              top: window.innerHeight - 64,
+              behavior: 'smooth'
+            });
+          }}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group cursor-pointer"
+        >
+          <span className="font-mono text-[8px] uppercase tracking-[0.4em] text-[#FF5500] opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none mb-3">
+            Scroll Down
+          </span>
+          <div className="w-8 h-12 flex items-center justify-center">
+            <div
+              className="w-px h-full bg-[linear-gradient(to_bottom,transparent_0%,rgba(255,85,0,0.6)_50%,transparent_100%)]"
+              style={{ animation: 'hero-scroll-cue 2.4s ease-in-out infinite' }}
+            />
+          </div>
         </div>
 
         <style>{`
@@ -687,8 +752,8 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
             <div className="font-mono text-[10px] text-[#FF6B35] uppercase tracking-[0.5em] mb-3">
               [Capabilities]
             </div>
-            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4">
-              Mission <span className="text-[#18BBF7]">Capabilities</span>
+            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-normal mb-4">
+              Mission Capabilities
             </h2>
             <p className="font-mono text-sm text-zinc-500 uppercase tracking-widest">
               Comprehensive telemetry for orbital operations
@@ -713,7 +778,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                 icon: Newspaper,
                 accent: '#FF6B35',
                 title: 'Orbital News',
-                copy: 'Curated feed of the latest spaceflight news, articles, and dispatches from trusted aerospace publications.',
+                copy: 'Curated feed of the latest spaceflight news and dispatches from trusted aerospace publications.',
               },
               {
                 icon: Database,
@@ -775,7 +840,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
           />
           <h2
             data-earth-headline
-            className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-6"
+            className="text-3xl md:text-5xl font-black uppercase tracking-normal mb-6"
           >
             <SplitChars text="Prepare for Liftoff" />
           </h2>

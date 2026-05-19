@@ -48,8 +48,9 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
   const iconRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const isAnimating = useRef(false);
-  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressTweenRef = useRef<gsap.core.Tween | null>(null);
   const tlRef = useRef<gsap.core.Timeline | null>(null);
+  const goNextRef = useRef<() => void>(undefined);
 
   const AUTOPLAY_DELAY = 6000;
 
@@ -88,14 +89,28 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
     const nextSlide = slides[nextIdx];
     if (!nextSlide) return;
 
-    // kill any running timeline
+    // kill any running timeline and stop the progress bar
     if (tlRef.current) tlRef.current.kill();
+    if (progressTweenRef.current) progressTweenRef.current.kill();
+    if (progressRef.current) gsap.set(progressRef.current, { scaleX: 0 });
 
     const tl = gsap.timeline({
       defaults: { ease: 'power3.inOut' },
       onComplete: () => {
         isAnimating.current = false;
-        setActive(nextIdx);
+        
+        // Start the progress bar for the next slide
+        if (progressRef.current) {
+          progressTweenRef.current = gsap.fromTo(progressRef.current,
+            { scaleX: 0 },
+            { 
+              scaleX: 1, 
+              duration: AUTOPLAY_DELAY / 1000, 
+              ease: 'none',
+              onComplete: () => goNextRef.current && goNextRef.current()
+            }
+          );
+        }
       },
     });
     tlRef.current = tl;
@@ -119,7 +134,10 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
     tl.to(elements.index, { opacity: 0, x: 20, duration: 0.3 }, 0.05);
 
     // ─── Phase 2: Swap content ───
-    tl.call(() => populateSlide(nextIdx), [], 0.5);
+    tl.call(() => {
+      populateSlide(nextIdx);
+      setActive(nextIdx);
+    }, [], 0.5);
 
     // Accent bar flash on the overlay
     tl.to(overlayRef.current, {
@@ -165,11 +183,31 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
     goTo((active + 1) % slides.length);
   }, [active, slides.length, goTo]);
 
+  useEffect(() => {
+    goNextRef.current = goNext;
+  }, [goNext]);
+
   /* ── Initial entrance animation ────────────────────────────────── */
   useEffect(() => {
     populateSlide(0);
 
-    const entrance = gsap.timeline({ defaults: { ease: 'power3.out' }, delay: 0.2 });
+    const entrance = gsap.timeline({ 
+      defaults: { ease: 'power3.out' }, 
+      delay: 0.2,
+      onComplete: () => {
+        if (progressRef.current) {
+          progressTweenRef.current = gsap.fromTo(progressRef.current,
+            { scaleX: 0 },
+            { 
+              scaleX: 1, 
+              duration: AUTOPLAY_DELAY / 1000, 
+              ease: 'none',
+              onComplete: () => goNextRef.current && goNextRef.current()
+            }
+          );
+        }
+      }
+    });
 
     entrance.fromTo(imageRef.current,
       { opacity: 0, scale: 1.2 },
@@ -205,35 +243,7 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Autoplay ──────────────────────────────────────────────────── */
-  useEffect(() => {
-    autoplayRef.current = setInterval(goNext, AUTOPLAY_DELAY);
-    return () => {
-      if (autoplayRef.current) clearInterval(autoplayRef.current);
-    };
-  }, [goNext]);
-
-  /* ── Progress bar animation ────────────────────────────────────── */
-  useEffect(() => {
-    if (!progressRef.current) return;
-    gsap.fromTo(progressRef.current,
-      { scaleX: 0 },
-      { scaleX: 1, duration: AUTOPLAY_DELAY / 1000, ease: 'none', repeat: -1 },
-    );
-  }, [active]);
-
-  /* ── Reset autoplay on manual navigation ───────────────────────── */
-  const resetAutoplay = useCallback(() => {
-    if (autoplayRef.current) clearInterval(autoplayRef.current);
-    autoplayRef.current = setInterval(goNext, AUTOPLAY_DELAY);
-    if (progressRef.current) {
-      gsap.killTweensOf(progressRef.current);
-      gsap.fromTo(progressRef.current,
-        { scaleX: 0 },
-        { scaleX: 1, duration: AUTOPLAY_DELAY / 1000, ease: 'none', repeat: -1 },
-      );
-    }
-  }, [goNext]);
+  // Autoplay is seamlessly managed by GSAP timelines linking goTo and goNext.
 
   return (
     <div ref={containerRef} className="relative w-full h-[85vh] md:h-[80vh] overflow-hidden bg-black">
@@ -333,7 +343,7 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
         {slides.map((s, i) => (
           <button
             key={s.id}
-            onClick={() => { goTo(i); resetAutoplay(); }}
+            onClick={() => { goTo(i); }}
             className="group flex flex-col items-center gap-1"
             aria-label={`Go to slide ${i + 1}`}
           >
