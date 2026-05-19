@@ -38,7 +38,6 @@ interface LandingCarouselProps {
 export default function LandingCarousel({ slides }: LandingCarouselProps) {
   const [active, setActive] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const metaRef = useRef<HTMLParagraphElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -58,12 +57,6 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
   const populateSlide = useCallback((idx: number) => {
     const s = slides[idx];
     if (!s) return;
-
-    if (imageRef.current) {
-      imageRef.current.src = s.imageSrc || '';
-      imageRef.current.alt = s.imageAlt || '';
-      imageRef.current.style.display = s.imageSrc ? 'block' : 'none';
-    }
 
     if (metaRef.current) metaRef.current.textContent = s.metaLine;
     if (titleRef.current) titleRef.current.textContent = s.title;
@@ -115,8 +108,12 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
     });
     tlRef.current = tl;
 
+    // Get current and next image elements for smooth crossfade
+    const images = containerRef.current?.querySelectorAll('[data-carousel-image]');
+    const currentImg = images?.[active];
+    const nextImg = images?.[nextIdx];
+
     const elements = {
-      image: imageRef.current,
       meta: metaRef.current,
       title: titleRef.current,
       desc: descRef.current,
@@ -126,7 +123,9 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
     };
 
     // ─── Phase 1: Animate OUT current elements ───
-    tl.to(elements.image, { opacity: 0, scale: 1.08, duration: 0.5 }, 0);
+    if (currentImg) {
+      tl.to(currentImg, { opacity: 0, scale: 1.08, duration: 0.5 }, 0);
+    }
     tl.to(elements.meta, { opacity: 0, y: -20, duration: 0.35 }, 0.05);
     tl.to(elements.title, { opacity: 0, x: -40, duration: 0.4 }, 0.08);
     tl.to(elements.desc, { opacity: 0, y: 20, duration: 0.35 }, 0.1);
@@ -146,11 +145,13 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
     }, 0.45);
 
     // ─── Phase 3: Animate IN new elements ───
-    tl.fromTo(elements.image,
-      { opacity: 0, scale: 1.15 },
-      { opacity: 1, scale: 1, duration: 0.7 },
-      0.55,
-    );
+    if (nextImg) {
+      tl.fromTo(nextImg,
+        { opacity: 0, scale: 1.15 },
+        { opacity: 1, scale: 1, duration: 0.7 },
+        0.55,
+      );
+    }
     tl.fromTo(elements.index,
       { opacity: 0, x: -20 },
       { opacity: 1, x: 0, duration: 0.35 },
@@ -209,10 +210,13 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
       }
     });
 
-    entrance.fromTo(imageRef.current,
-      { opacity: 0, scale: 1.2 },
-      { opacity: 1, scale: 1, duration: 1 },
-    );
+    const firstImg = containerRef.current?.querySelector('[data-carousel-image]');
+    if (firstImg) {
+      entrance.fromTo(firstImg,
+        { opacity: 0, scale: 1.2 },
+        { opacity: 1, scale: 1, duration: 1 },
+      );
+    }
     entrance.fromTo(indexRef.current,
       { opacity: 0, y: -15 },
       { opacity: 1, y: 0, duration: 0.4 },
@@ -247,15 +251,22 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
 
   return (
     <div ref={containerRef} className="relative w-full h-[85vh] md:h-[80vh] overflow-hidden bg-black">
-      {/* Background image */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        ref={imageRef}
-        src={slides[0]?.imageSrc || '/feature-earth.png'}
-        alt={slides[0]?.imageAlt || ''}
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ willChange: 'transform, opacity' }}
-      />
+      {/* Background images for smooth hardware-accelerated crossfading */}
+      {slides.map((s, idx) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={s.id}
+          data-carousel-image
+          src={s.imageSrc || '/feature-earth.png'}
+          alt={s.imageAlt || ''}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{
+            opacity: idx === 0 ? 1 : 0,
+            willChange: 'transform, opacity',
+            display: s.imageSrc ? 'block' : 'none',
+          }}
+        />
+      ))}
 
       {/* Gradient overlays */}
       <div ref={overlayRef} className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />

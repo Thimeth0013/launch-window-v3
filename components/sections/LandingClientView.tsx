@@ -7,11 +7,7 @@ import { useGSAP } from '@gsap/react';
 import Link from 'next/link';
 import {
   ChevronRight,
-  Database,
-  Globe,
-  Rocket,
-  ShieldAlert,
-  Newspaper,
+  Globe
 } from 'lucide-react';
 import LandingCarousel, { buildCarouselSlides } from './LandingCarousel';
 
@@ -211,35 +207,27 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         ease: 'power3.out',
       });
 
-      const heroTl = gsap.timeline({ defaults: { ease: 'power4.out' }, delay: 0.15 });
+      // Smooth cinematic fade-in for the background image to resolve the initial black screen
+      gsap.fromTo('[data-hero-image]',
+        { opacity: 0 },
+        { opacity: 1, duration: 1.6, ease: 'power2.out' }
+      );
+
+      const heroTl = gsap.timeline({ defaults: { ease: 'power4.out' }, delay: 0.3 });
 
       heroTl
-        // Top HUD strip: items slide down from above
-        .from('[data-hero-topbar]', {
-          opacity: 0,
-          y: -14,
-          stagger: 0.07,
-          duration: 0.6,
-          ease: 'power3.out',
-        })
-        // Eyebrow ([01] // PRIMARY DIRECTIVE ...)
-        .from(
-          '[data-hero-eyebrow]',
-          { opacity: 0, y: 18, duration: 0.55 },
-          '-=0.2'
-        )
         // TITLE — line-mask reveal: each line lives inside overflow-hidden,
         // the inner span starts shifted down by 110% of its height and
         // slides up to its natural position. Stagger per line.
         .from(
-          '[data-title-line], [data-dynamic-sentence]',
+          '[data-dynamic-sentence]',
           {
             yPercent: 110,
-            stagger: 0.11,
-            duration: 1.1,
+            stagger: 0.12,
+            duration: 1.3,
             ease: 'power4.out',
-          },
-          '-=0.25'
+            immediateRender: true,
+          }
         )
         // Line-draws: orange rule, HUD rules, terminator — all scale from 0
         // off their left edge to 100% width.
@@ -248,34 +236,37 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
           {
             scaleX: 0,
             transformOrigin: 'left center',
-            stagger: 0.08,
-            duration: 0.8,
+            stagger: 0.1,
+            duration: 1.0,
             ease: 'power3.inOut',
+            immediateRender: true,
           },
-          '-=0.7'
+          '-=0.95'
         )
         // Subtitle fade-up
         .from(
           '[data-dynamic-desc]',
-          { 
-            opacity: 0, 
-            y: 28, 
-            duration: 0.65,
+          {
+            opacity: 0,
+            y: 20,
+            duration: 0.8,
+            immediateRender: true,
           },
-          '-=0.55'
+          '-=0.75'
         )
         // CTAs
         .from(
           '[data-hero-cta]',
           {
             opacity: 0,
-            y: 22,
-            scale: 0.94,
-            stagger: 0.08,
-            duration: 0.5,
-            ease: 'back.out(1.6)',
+            y: 16,
+            scale: 0.95,
+            stagger: 0.1,
+            duration: 0.7,
+            ease: 'back.out(1.4)',
+            immediateRender: true,
           },
-          '-=0.4'
+          '-=0.6'
         )
         // Telemetry rows slide in from the right; the scramble effect on
         // their values starts internally a few hundred ms later (see the
@@ -284,12 +275,13 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
           '[data-hero-telemetry-row]',
           {
             opacity: 0,
-            x: 30,
-            stagger: 0.07,
-            duration: 0.5,
+            x: 20,
+            stagger: 0.08,
+            duration: 0.7,
             ease: 'power3.out',
+            immediateRender: true,
           },
-          '-=0.55'
+          '-=0.6'
         );
 
       /* ── Dynamic hero sentences cycle ───────────────────────── */
@@ -321,9 +313,9 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
             .to(el, { yPercent: -8, autoAlpha: 0, filter: 'blur(8px)', duration: 0.7, ease: 'power3.inOut' })
             .to(desc, { yPercent: -8, autoAlpha: 0, filter: 'blur(8px)', duration: 0.7, ease: 'power3.inOut' }, '<0.05')
             .to(img, { autoAlpha: 0, scale: 0.95, filter: 'blur(8px)', duration: 0.8, ease: 'power2.inOut' }, '<-0.05')
-            .fromTo(nextEl, { yPercent: 8, autoAlpha: 0, filter: 'blur(8px)' }, { yPercent: 0, autoAlpha: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out' }, '<0.4')
-            .fromTo(nextDesc, { yPercent: 8, autoAlpha: 0, filter: 'blur(8px)' }, { yPercent: 0, autoAlpha: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out' }, '<0.05')
-            .fromTo(nextImg, { autoAlpha: 0, scale: 1.08, filter: 'blur(8px)' }, { autoAlpha: 0.55, scale: 1, filter: 'blur(0px)', duration: 1.2, ease: 'power3.out' }, '<-0.05')
+            .fromTo(nextEl, { yPercent: 8, autoAlpha: 0, filter: 'blur(8px)' }, { yPercent: 0, autoAlpha: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out', immediateRender: false }, '<0.4')
+            .fromTo(nextDesc, { yPercent: 8, autoAlpha: 0, filter: 'blur(8px)' }, { yPercent: 0, autoAlpha: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out', immediateRender: false }, '<0.05')
+            .fromTo(nextImg, { autoAlpha: 0, scale: 1.08, filter: 'blur(8px)' }, { autoAlpha: 0.55, scale: 1, filter: 'blur(0px)', duration: 1.2, ease: 'power3.out', immediateRender: false }, '<-0.05')
             .to({}, { duration: 5.6 }); // Hold time
         });
       }
@@ -687,7 +679,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         </div>
 
         {/* Scroll-cue line at bottom centre */}
-        <div 
+        <div
           onClick={() => {
             window.scrollTo({
               top: window.innerHeight - 64,
@@ -719,16 +711,6 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       {/* FEATURED INTEL CAROUSEL                                       */}
       {/* ============================================================ */}
       <section className="relative w-full border-t border-b border-white/10 bg-zinc-950">
-        <div className="absolute top-0 left-0 w-full px-6 py-4 flex items-center justify-between z-20 pointer-events-none">
-          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">
-            Featured Intel
-          </div>
-          <div className="flex gap-1">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="w-1 h-1 bg-white/20" />
-            ))}
-          </div>
-        </div>
         <LandingCarousel slides={buildCarouselSlides(apod, launch, article)} />
       </section>
 
@@ -763,25 +745,21 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
-                icon: Rocket,
                 accent: '#FF6B35',
                 title: 'Global Manifest',
                 copy: 'Track upcoming orbital launches from all agencies and providers worldwide with real-time countdowns and detailed mission intel.',
               },
               {
-                icon: Globe,
                 accent: '#18BBF7',
                 title: 'Starship Hub',
                 copy: "Dedicated telemetry for SpaceX's Starship program. Monitor vehicle statuses, historical test flights, and program milestones.",
               },
               {
-                icon: Newspaper,
                 accent: '#FF6B35',
                 title: 'Orbital News',
                 copy: 'Curated feed of the latest spaceflight news and dispatches from trusted aerospace publications.',
               },
               {
-                icon: Database,
                 accent: '#18BBF7',
                 title: 'APOD Archive',
                 copy: "Daily astronomical observations and cosmic imagery, provided directly by NASA's Astronomy Picture of the Day API.",
@@ -797,10 +775,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                   className="absolute top-0 left-0 w-full h-px scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-700"
                   style={{ background: `linear-gradient(to right, ${feat.accent}, transparent)` }}
                 />
-                <feat.icon
-                  className="w-10 h-10 mb-6 transition-transform duration-300 group-hover:scale-110"
-                  style={{ color: feat.accent }}
-                />
+
                 <h3 className="text-xl font-bold uppercase tracking-tight mb-3">
                   {feat.title}
                 </h3>
@@ -834,7 +809,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         <div className="absolute inset-0 bg-linear-to-t from-black via-black/60 to-black/20" />
 
         <div className="relative z-10 max-w-4xl mx-auto text-center">
-          <ShieldAlert
+          <Globe
             data-earth-icon
             className="w-12 h-12 text-[#18BBF7] mx-auto mb-6 opacity-80 will-change-transform"
           />
