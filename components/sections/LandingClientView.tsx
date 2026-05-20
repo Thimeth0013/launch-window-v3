@@ -47,12 +47,6 @@ function SplitChars({ text, className = '' }: { text: string; className?: string
   );
 }
 
-// Single row inside the hero "instrument panel" on the right. Mono labels,
-// optional detail line underneath, optional emerald accent on the value.
-// Inline scramble effect — cycles through random glyphs for ~1s on mount
-// before locking into the final string. Non-alphanumeric chars (spaces,
-// slashes, periods, etc.) are preserved through the scramble so the shape
-// of the line is recognisable mid-cycle.
 function ScrambledText({
   text,
   duration = 1000,
@@ -81,7 +75,6 @@ function ScrambledText({
 
       const out = Array.from(text)
         .map((char, i) => {
-          // Anchor punctuation/whitespace so the shape stays readable
           if (!/[a-zA-Z0-9]/.test(char)) return char;
           const revealAt = (i / Math.max(text.length, 1)) * 0.6;
           if (progress >= revealAt + 0.4) return char;
@@ -127,9 +120,7 @@ function TelemetryRow({
         <span className="text-[9px] text-zinc-500 uppercase tracking-[0.4em] font-mono">
           {label}
         </span>
-        <span
-          className={`text-[11px] font-black uppercase tracking-widest tabular-nums font-mono ${valueClass}`}
-        >
+        <span className={`text-[11px] font-black uppercase tracking-widest tabular-nums font-mono ${valueClass}`}>
           <ScrambledText text={value} delay={scrambleDelay} duration={900} />
         </span>
       </div>
@@ -148,6 +139,7 @@ function TelemetryRow({
 
 export default function LandingClientView({ apod, launch, article }: LandingClientViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
   const dynamicSentences = [
     'Track Global Orbital Launches',
     'Latest Spaceflight News Feed',
@@ -155,6 +147,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
     'NASA Daily Cosmic Archive',
     'Live Mission Telemetry',
   ];
+
   const dynamicDescriptions = [
     <>
       A mission-control terminal for global spaceflight. Track launches worldwide, monitor countdowns, and read orbital intel — sourced live from{' '}
@@ -178,7 +171,6 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
     </>,
   ];
 
-  // Helper: human-friendly relative time for "Last sync". Returns null if no date.
   function timeAgoString(d?: string | number | Date | null) {
     if (!d) return null;
     const then = new Date(d).getTime();
@@ -202,99 +194,75 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       const dynamicImgs = gsap.utils.toArray<HTMLElement>('[data-dynamic-image]');
       const dynamicDescs = gsap.utils.toArray<HTMLElement>('[data-dynamic-desc]');
 
-      /* ── 1. Hero entrance timeline ──────────────────────────────── */
-      // Slow 3.5s background breathing zoom runs in parallel with the main
-      // timeline — feels like the camera is settling.
-      gsap.from('[data-hero-image]', {
-        scale: 1.12,
-        duration: 3.6,
-        ease: 'power3.out',
-      });
+      /* ═══════════════════════════════════════════════════════════════
+         1. HERO — entrance timeline
+      ═══════════════════════════════════════════════════════════════ */
 
-      // Smooth cinematic fade-in for the background image to resolve the initial black screen
-      gsap.fromTo('[data-hero-image]',
-        { opacity: 0 },
-        { opacity: 1, duration: 1.6, ease: 'power2.out' }
-      );
+      // Background: slow breathe-zoom + cinematic fade-in
+      gsap.from('[data-hero-image]', { scale: 1.12, duration: 3.6, ease: 'power3.out' });
+      gsap.fromTo('[data-hero-image]', { opacity: 0 }, { opacity: 1, duration: 1.6, ease: 'power2.out' });
 
       const heroTl = gsap.timeline({ defaults: { ease: 'power4.out' }, delay: 0.3 });
 
       heroTl
-        // TITLE — line-mask reveal: each line lives inside overflow-hidden,
-        // the inner span starts shifted down by 110% of its height and
-        // slides up to its natural position.
-        .from(
-          dynamicEls[0] || '[data-dynamic-sentence]',
-          {
-            yPercent: 110,
-            duration: 1.3,
-            ease: 'power4.out',
-            immediateRender: true,
-          }
-        )
-        // Line-draws: orange rule, HUD rules, terminator — all scale from 0
-        // off their left edge to 100% width.
-        .from(
-          '[data-line-draw]',
-          {
-            scaleX: 0,
-            transformOrigin: 'left center',
-            stagger: 0.1,
-            duration: 1.0,
-            ease: 'power3.inOut',
-            immediateRender: true,
-          },
-          '-=0.95'
-        )
+        // Title line-mask reveal
+        .from(dynamicEls[0] || '[data-dynamic-sentence]', {
+          yPercent: 110,
+          duration: 1.3,
+          ease: 'power4.out',
+          immediateRender: true,
+        })
+        // Orange divider + HUD rules draw left-to-right
+        .from('[data-line-draw]', {
+          scaleX: 0,
+          transformOrigin: 'left center',
+          stagger: 0.1,
+          duration: 1.0,
+          ease: 'power3.inOut',
+          immediateRender: true,
+        }, '-=0.95')
         // Subtitle fade-up
-        .from(
-          dynamicDescs[0] || '[data-dynamic-desc]',
-          {
-            opacity: 0,
-            y: 20,
-            duration: 0.8,
-            immediateRender: true,
-          },
-          '-=0.75'
-        )
-        // CTAs
-        .from(
-          '[data-hero-cta]',
-          {
-            opacity: 0,
-            y: 16,
-            scale: 0.95,
-            stagger: 0.1,
-            duration: 0.7,
-            ease: 'back.out(1.4)',
-            immediateRender: true,
-          },
-          '-=0.6'
-        )
-        // Telemetry rows slide in from the right; the scramble effect on
-        // their values starts internally a few hundred ms later (see the
-        // `scrambleDelay` props on each TelemetryRow).
-        .from(
-          '[data-hero-telemetry-row]',
-          {
-            opacity: 0,
-            x: 20,
-            stagger: 0.08,
-            duration: 0.7,
-            ease: 'power3.out',
-            immediateRender: true,
-          },
-          '-=0.6'
-        );
+        .from(dynamicDescs[0] || '[data-dynamic-desc]', {
+          opacity: 0,
+          y: 20,
+          duration: 0.8,
+          immediateRender: true,
+        }, '-=0.75')
+        // CTA buttons
+        .from('[data-hero-cta]', {
+          opacity: 0,
+          y: 16,
+          scale: 0.95,
+          stagger: 0.1,
+          duration: 0.7,
+          ease: 'back.out(1.4)',
+          immediateRender: true,
+        }, '-=0.6')
+        // Telemetry HUD rows slide in from right
+        .from('[data-hero-telemetry-row]', {
+          opacity: 0,
+          x: 20,
+          stagger: 0.08,
+          duration: 0.7,
+          ease: 'power3.out',
+          immediateRender: true,
+        }, '-=0.6')
+        // Scroll-cue fades in last
+        .from('[data-scroll-cue]', {
+          opacity: 0,
+          y: 10,
+          duration: 0.6,
+          ease: 'power2.out',
+          immediateRender: true,
+        }, '-=0.3');
 
-      /* ── Dynamic hero sentences cycle ───────────────────────── */
+      /* ── Dynamic hero sentence cycle ─────────────────────────── */
       let cycleTl: gsap.core.Timeline | null = null;
 
       if (dynamicEls.length && dynamicImgs.length && dynamicDescs.length) {
         gsap.set(dynamicEls.slice(1), { autoAlpha: 0, yPercent: 8 });
         gsap.set(dynamicImgs.slice(1), { autoAlpha: 0, scale: 1.08 });
         gsap.set(dynamicDescs.slice(1), { autoAlpha: 0, yPercent: 8 });
-
         gsap.set(dynamicEls[0], { autoAlpha: 1, yPercent: 0 });
         gsap.set(dynamicImgs[0], { autoAlpha: 0.55, scale: 1 });
         gsap.set(dynamicDescs[0], { autoAlpha: 1, yPercent: 0 });
@@ -304,10 +272,10 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         dynamicEls.forEach((el, index) => {
           const img = dynamicImgs[index];
           const desc = dynamicDescs[index];
-          const nextIndex = (index + 1) % dynamicEls.length;
-          const nextEl = dynamicEls[nextIndex];
-          const nextImg = dynamicImgs[nextIndex];
-          const nextDesc = dynamicDescs[nextIndex];
+          const next = (index + 1) % dynamicEls.length;
+          const nextEl = dynamicEls[next];
+          const nextImg = dynamicImgs[next];
+          const nextDesc = dynamicDescs[next];
 
           cycleTl!
             .to(el, { yPercent: -8, autoAlpha: 0, filter: 'blur(8px)', duration: 0.7, ease: 'power3.inOut' })
@@ -316,70 +284,175 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
             .fromTo(nextEl, { yPercent: 8, autoAlpha: 0, filter: 'blur(8px)' }, { yPercent: 0, autoAlpha: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out', immediateRender: false }, '<0.4')
             .fromTo(nextDesc, { yPercent: 8, autoAlpha: 0, filter: 'blur(8px)' }, { yPercent: 0, autoAlpha: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out', immediateRender: false }, '<0.05')
             .fromTo(nextImg, { autoAlpha: 0, scale: 1.08, filter: 'blur(8px)' }, { autoAlpha: 0.55, scale: 1, filter: 'blur(0px)', duration: 1.2, ease: 'power3.out', immediateRender: false }, '<-0.05')
-            .to({}, { duration: 5.6 }); // Hold time
+            .to({}, { duration: 5.6 });
         });
       }
 
-      /* ── 2. Continuous float on the live-telemetry badge ────────── */
+      /* ═══════════════════════════════════════════════════════════════
+         2. HERO — continuous ambient animations
+      ═══════════════════════════════════════════════════════════════ */
+
+      // Badge float
       gsap.to('[data-hero-badge]', {
-        y: -6,
-        duration: 2.6,
+        y: -6, duration: 2.6, ease: 'sine.inOut', yoyo: true, repeat: -1, delay: 1.2,
+      });
+
+      // Subtle pulse on the orange divider glow
+      gsap.to('[data-line-draw]:first-of-type', {
+        opacity: 0.6,
+        duration: 2.2,
         ease: 'sine.inOut',
         yoyo: true,
         repeat: -1,
-        delay: 1.2, // start after entrance settles
+        delay: 2,
       });
 
-      /* ── 3. Parallax on the hero rocket image ───────────────────── */
+      // Hero CTA button — subtle breathing scale so it draws the eye
+      gsap.to('[data-hero-cta]', {
+        scale: 1.018,
+        duration: 2.8,
+        ease: 'sine.inOut',
+        yoyo: true,
+        repeat: -1,
+        delay: 3,
+      });
+
+      /* ═══════════════════════════════════════════════════════════════
+         3. HERO — scroll-driven parallax
+      ═══════════════════════════════════════════════════════════════ */
+
+      // Background image drifts down as we scroll away
       gsap.to('[data-hero-image]', {
         yPercent: 18,
         ease: 'none',
-        scrollTrigger: {
-          trigger: '[data-hero-section]',
-          start: 'top top',
-          end: 'bottom top',
-          scrub: 1,
-        },
+        scrollTrigger: { trigger: '[data-hero-section]', start: 'top top', end: 'bottom top', scrub: 1 },
       });
+
+      // Hero content fades + lifts slightly on scroll
       gsap.to('[data-hero-content]', {
         yPercent: -8,
         opacity: 0.6,
         ease: 'none',
+        scrollTrigger: { trigger: '[data-hero-section]', start: 'top top', end: 'bottom top', scrub: 1 },
+      });
+
+      // Tactical grid fades out as user scrolls (feels like leaving the HUD)
+      gsap.to('[data-hero-grid]', {
+        opacity: 0,
+        ease: 'none',
+        scrollTrigger: { trigger: '[data-hero-section]', start: '40% top', end: 'bottom top', scrub: 1 },
+      });
+
+      /* ═══════════════════════════════════════════════════════════════
+         4. CAROUSEL — pin + capabilities overlay
+      ═══════════════════════════════════════════════════════════════ */
+
+      // Pin carousel while capabilities rises over it
+      ScrollTrigger.create({
+        trigger: '[data-carousel-section]',
+        start: 'top top',
+        end: () => {
+          const overlay = document.querySelector('[data-capabilities-overlay]') as HTMLElement | null;
+          return overlay ? `+=${overlay.offsetHeight * 0.6}` : '+=600';
+        },
+        pin: true,
+        pinSpacing: false,
+      });
+
+      // Capabilities panel rises from below — scrubbed to scroll
+      gsap.from('[data-capabilities-overlay]', {
+        yPercent: 35,
+        ease: 'none',
         scrollTrigger: {
-          trigger: '[data-hero-section]',
-          start: 'top top',
-          end: 'bottom top',
+          trigger: '[data-capabilities-overlay]',
+          start: 'top bottom',
+          end: 'top top',
           scrub: 1,
         },
       });
 
-      /* ── 4. Capabilities section reveal + 3D tilt on cards ──────── */
-      gsap.from('[data-section-eyebrow]', {
-        opacity: 0,
-        y: 40,
-        duration: 0.8,
-        ease: 'power3.out',
+      // Carousel itself fades + scales down as the capabilities panel covers it
+      gsap.to('[data-carousel-section]', {
+        opacity: 0.3,
+        scale: 0.97,
+        ease: 'none',
         scrollTrigger: {
-          trigger: '[data-features-section]',
+          trigger: '[data-capabilities-overlay]',
           start: 'top 80%',
+          end: 'top top',
+          scrub: 1,
         },
       });
 
+      /* ═══════════════════════════════════════════════════════════════
+         5. CAPABILITIES — section entrance
+      ═══════════════════════════════════════════════════════════════ */
+
+      // Eyebrow tag + headline + subtext stagger up
+      gsap.from('[data-capabilities-tag]', {
+        opacity: 0,
+        y: 20,
+        letterSpacing: '0.1em',
+        duration: 0.7,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '[data-features-section]', start: 'top 80%' },
+      });
+
+      gsap.from('[data-capabilities-headline]', {
+        opacity: 0,
+        y: 40,
+        duration: 0.9,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '[data-features-section]', start: 'top 78%' },
+      });
+
+      gsap.from('[data-capabilities-sub]', {
+        opacity: 0,
+        y: 20,
+        duration: 0.7,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '[data-features-section]', start: 'top 75%' },
+      });
+
+      // Feature cards stagger in with a cascade
       gsap.from('[data-feature-card]', {
         opacity: 0,
         y: 80,
         scale: 0.96,
-        stagger: 0.1,
+        stagger: { each: 0.12, from: 'start' },
         duration: 0.85,
         ease: 'power3.out',
-        scrollTrigger: {
-          trigger: '[data-features-section]',
-          start: 'top 70%',
-        },
+        scrollTrigger: { trigger: '[data-features-section]', start: 'top 70%' },
       });
 
-      // 3D tilt — uses contextSafe so handlers no-op after unmount and
-      // listeners are cleaned up in the return below.
+      // Card accent numbers count up from 0 opacity
+      gsap.from('[data-card-number]', {
+        opacity: 0,
+        scale: 0.5,
+        stagger: { each: 0.12, from: 'start' },
+        duration: 0.6,
+        ease: 'back.out(2)',
+        scrollTrigger: { trigger: '[data-features-section]', start: 'top 68%' },
+      });
+
+      // Card titles slide in from the left with a tiny delay after the card itself
+      gsap.from('[data-card-title]', {
+        opacity: 0,
+        x: -16,
+        stagger: { each: 0.12, from: 'start' },
+        duration: 0.6,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '[data-features-section]', start: 'top 67%' },
+      });
+
+      // Grid bg slow drift (parallax)
+      gsap.to('[data-grid-bg]', {
+        yPercent: 25,
+        ease: 'none',
+        scrollTrigger: { trigger: '[data-features-section]', start: 'top bottom', end: 'bottom top', scrub: 1 },
+      });
+
+      /* ── 3D tilt + border glow on hover ─────────────────────── */
       const cards = gsap.utils.toArray<HTMLElement>('[data-feature-card]');
       const cardCleanups: Array<() => void> = [];
 
@@ -415,7 +488,10 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         });
       });
 
-      /* ── 5. Magnetic hover on primary CTA buttons ───────────────── */
+      /* ═══════════════════════════════════════════════════════════════
+         6. MAGNETIC CTAs
+      ═══════════════════════════════════════════════════════════════ */
+
       const magnets = gsap.utils.toArray<HTMLElement>('[data-magnetic]');
       const magnetCleanups: Array<() => void> = [];
 
@@ -424,22 +500,10 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
           const rect = mag.getBoundingClientRect();
           const x = e.clientX - rect.left - rect.width / 2;
           const y = e.clientY - rect.top - rect.height / 2;
-          gsap.to(mag, {
-            x: x * 0.25,
-            y: y * 0.45,
-            duration: 0.4,
-            ease: 'power2.out',
-            overwrite: 'auto',
-          });
+          gsap.to(mag, { x: x * 0.25, y: y * 0.45, duration: 0.4, ease: 'power2.out', overwrite: 'auto' });
         });
         const onLeave = contextSafe(() => {
-          gsap.to(mag, {
-            x: 0,
-            y: 0,
-            duration: 0.7,
-            ease: 'elastic.out(1, 0.55)',
-            overwrite: 'auto',
-          });
+          gsap.to(mag, { x: 0, y: 0, duration: 0.7, ease: 'elastic.out(1, 0.55)', overwrite: 'auto' });
         });
         mag.addEventListener('mousemove', onMove);
         mag.addEventListener('mouseleave', onLeave);
@@ -449,85 +513,130 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         });
       });
 
-      /* ── 6. "Prepare for Liftoff" — scroll-driven scale + parallax ─ */
-      gsap.from('[data-earth-icon]', {
-        opacity: 0,
-        scale: 0.6,
-        rotate: -45,
-        duration: 1,
-        ease: 'back.out(1.6)',
-        scrollTrigger: {
-          trigger: '[data-earth-section]',
-          start: 'top 70%',
-        },
-      });
+      /* ═══════════════════════════════════════════════════════════════
+         7. LIFTOFF SECTION — cinematic reveal sequence
+      ═══════════════════════════════════════════════════════════════ */
 
-      gsap.from('[data-earth-headline] [data-hero-char]', {
-        opacity: 0,
-        y: 50,
-        rotate: 4,
-        stagger: { each: 0.015, from: 'start' },
-        duration: 0.7,
-        ease: 'power3.out',
-        scrollTrigger: {
-          trigger: '[data-earth-section]',
-          start: 'top 70%',
-        },
-      });
-
-      gsap.from('[data-earth-copy]', {
-        opacity: 0,
-        y: 30,
-        duration: 0.8,
-        ease: 'power3.out',
-        scrollTrigger: {
-          trigger: '[data-earth-section]',
-          start: 'top 65%',
-        },
-      });
-
-      gsap.from('[data-earth-cta]', {
-        opacity: 0,
-        y: 30,
-        scale: 0.92,
-        duration: 0.7,
-        ease: 'back.out(1.6)',
-        scrollTrigger: {
-          trigger: '[data-earth-section]',
-          start: 'top 60%',
-        },
-      });
-
-      // Scrubbed background scale on the earth image — cinematic zoom-in
-      gsap.fromTo(
-        '[data-earth-image]',
-        { scale: 1.25, yPercent: 6 },
+      // Earth image: scrubbed scale + parallax zoom — starts large, settles as section enters
+      gsap.fromTo('[data-earth-image]',
+        { scale: 1.3, yPercent: 8 },
         {
           scale: 1,
           yPercent: 0,
           ease: 'none',
-          scrollTrigger: {
-            trigger: '[data-earth-section]',
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: 1.5,
-          },
+          scrollTrigger: { trigger: '[data-earth-section]', start: 'top bottom', end: 'bottom top', scrub: 1.5 },
         }
       );
 
-      /* ── 7. Grid background drift in capabilities section ───────── */
-      gsap.to('[data-grid-bg]', {
-        yPercent: 25,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: '[data-features-section]',
-          start: 'top bottom',
-          end: 'bottom top',
-          scrub: 1,
-        },
+      // Vignette overlay fades in as the section enters for dramatic effect
+      gsap.fromTo('[data-earth-vignette]',
+        { opacity: 0 },
+        {
+          opacity: 1,
+          duration: 1.2,
+          ease: 'power2.out',
+          scrollTrigger: { trigger: '[data-earth-section]', start: 'top 80%' },
+        }
+      );
+
+      // Horizontal rule above globe icon draws in from center
+      gsap.from('[data-earth-rule]', {
+        scaleX: 0,
+        transformOrigin: 'center center',
+        duration: 1.2,
+        ease: 'power3.inOut',
+        scrollTrigger: { trigger: '[data-earth-section]', start: 'top 70%' },
       });
 
-      /* ── Cleanup: detach event listeners (gsap.context cleans tweens) */
+      // Globe icon: drop + bounce + slow continuous rotation
+      gsap.from('[data-earth-icon]', {
+        opacity: 0,
+        scale: 0.4,
+        y: -30,
+        rotate: -90,
+        duration: 1.1,
+        ease: 'back.out(1.8)',
+        scrollTrigger: { trigger: '[data-earth-section]', start: 'top 68%' },
+      });
+
+      // Slow continuous rotation on the globe once it's in
+      gsap.to('[data-earth-icon]', {
+        rotate: 360,
+        duration: 20,
+        ease: 'none',
+        repeat: -1,
+        delay: 1.5,
+        scrollTrigger: { trigger: '[data-earth-section]', start: 'top 68%' },
+      });
+
+      // Liftoff headline: each char fans in with rotation — dramatic
+      gsap.from('[data-earth-headline] [data-hero-char]', {
+        opacity: 0,
+        y: 60,
+        rotate: 6,
+        stagger: { each: 0.018, from: 'start' },
+        duration: 0.75,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '[data-earth-section]', start: 'top 65%' },
+      });
+
+      // Horizontal accent rule under headline draws outward from center
+      gsap.from('[data-earth-headline-rule]', {
+        scaleX: 0,
+        transformOrigin: 'center center',
+        duration: 0.8,
+        ease: 'power3.inOut',
+        scrollTrigger: { trigger: '[data-earth-section]', start: 'top 62%' },
+      });
+
+      // Body copy fades up with a slight clip feel
+      gsap.from('[data-earth-copy]', {
+        opacity: 0,
+        y: 32,
+        duration: 0.9,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '[data-earth-section]', start: 'top 60%' },
+      });
+
+      // Stat counter chips stagger in from below
+      gsap.from('[data-earth-stat]', {
+        opacity: 0,
+        y: 24,
+        scale: 0.9,
+        stagger: 0.1,
+        duration: 0.7,
+        ease: 'back.out(1.4)',
+        scrollTrigger: { trigger: '[data-earth-section]', start: 'top 58%' },
+      });
+
+      // CTA button springs in last
+      gsap.from('[data-earth-cta]', {
+        opacity: 0,
+        y: 30,
+        scale: 0.88,
+        duration: 0.8,
+        ease: 'back.out(2)',
+        scrollTrigger: { trigger: '[data-earth-section]', start: 'top 55%' },
+      });
+
+      // Earth image subtle parallax while in view
+      gsap.to('[data-earth-image]', {
+        yPercent: -6,
+        ease: 'none',
+        scrollTrigger: { trigger: '[data-earth-section]', start: 'top bottom', end: 'bottom top', scrub: 2 },
+      });
+
+      // Continuous slow pulse on the globe icon — breathing glow via scale
+      gsap.to('[data-earth-icon]', {
+        scale: 1.08,
+        duration: 3,
+        ease: 'sine.inOut',
+        yoyo: true,
+        repeat: -1,
+        delay: 2,
+      });
+
+      /* ── Cleanup ──────────────────────────────────────────────── */
       return () => {
         cardCleanups.forEach((fn) => fn());
         magnetCleanups.forEach((fn) => fn());
@@ -540,11 +649,14 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
   return (
     <div ref={containerRef} className="flex flex-col min-h-screen bg-black overflow-x-hidden">
 
+      {/* ============================================================ */}
+      {/* HERO                                                          */}
+      {/* ============================================================ */}
       <section
         data-hero-section
         className="relative min-h-screen w-full overflow-hidden bg-[#050505]"
       >
-        {/* Cinematic background: dynamic images corresponding to text */}
+        {/* Cinematic background images */}
         <div data-hero-image className="absolute inset-0 w-full h-full will-change-transform bg-[#050505]">
           {[1, 2, 3, 4, 5].map((num, i) => (
             <img
@@ -557,15 +669,13 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
           ))}
         </div>
 
-        {/* Heavy gradient: dark top + dark bottom, mostly transparent middle */}
+        {/* Gradients */}
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#050505_0%,rgba(5,5,5,0.2)_35%,rgba(5,5,5,0.2)_60%,#050505_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(5,5,5,0.7)_0%,transparent_45%,rgba(5,5,5,0.4)_100%)]" />
 
-        {/* Tactical grid backdrop + film grain — gives that monitor feel */}
-        <div className="absolute inset-0 hero-grid opacity-50 pointer-events-none" />
+        {/* Tactical grid + film grain */}
+        <div data-hero-grid className="absolute inset-0 hero-grid opacity-50 pointer-events-none will-change-opacity" />
         <div className="absolute inset-0 hero-grain pointer-events-none" />
-
-        {/* Top HUD removed — use global `AppHeader` instead to avoid duplication */}
 
         {/* ── MAIN GRID ──────────────────────────────────────────── */}
         <div
@@ -574,10 +684,10 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         >
           <div className="w-full max-w-[1700px] mx-auto grid grid-cols-12 gap-x-6 lg:gap-x-12">
 
-            {/* ── ZONE B · MAIN LEFT COLUMN ───────────────────────── */}
+            {/* ── LEFT COLUMN ─────────────────────────────────────── */}
             <div className="col-span-12 lg:col-span-8 xl:col-span-8">
 
-              {/* HERO TITLE — cycles through dynamic sentences */}
+              {/* Dynamic title */}
               <h1 className="grid items-center font-display font-bold uppercase tracking-normal mb-2 overflow-hidden py-2 md:py-4">
                 {dynamicSentences.map((s, i) => (
                   <span
@@ -592,13 +702,13 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                 ))}
               </h1>
 
-              {/* Sharp orange divider — drawn in on load */}
+              {/* Orange divider */}
               <div
                 data-line-draw
                 className="h-px w-28 bg-[#FF5500] origin-left mb-6 md:mb-8 shadow-[0_0_12px_rgba(255,85,0,0.65)]"
               />
 
-              {/* Dynamic Paragraphs */}
+              {/* Dynamic description */}
               <div className="grid items-start mb-4 md:mb-8 relative overflow-hidden py-1">
                 {dynamicDescriptions.map((desc, i) => (
                   <p
@@ -611,7 +721,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                 ))}
               </div>
 
-              {/* CTAs — sharp corners, zero radius */}
+              {/* CTA */}
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <Link
                   href="/launches"
@@ -625,10 +735,9 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
               </div>
             </div>
 
-            {/* ── ZONE C · BOTTOM-RIGHT TELEMETRY HUD ─────────────── */}
+            {/* ── TELEMETRY HUD ────────────────────────────────────── */}
             <aside className="hidden lg:flex col-span-12 lg:col-span-4 xl:col-span-4 flex-col gap-5 self-end pb-2 border-l border-white/10 pl-6">
 
-              {/* HUD header with line-draw rule */}
               <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.4em]">
                 <span className="text-[#00E5FF] font-black">Telemetry</span>
                 <div
@@ -637,9 +746,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                 />
               </div>
 
-              {/* Data rows — values scramble on mount. Only show rows with real data. */}
               <div className="space-y-3.5">
-
                 {(launch?.name) && (
                   <TelemetryRow
                     label="Upcoming"
@@ -647,13 +754,11 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                     scrambleDelay={1800}
                   />
                 )}
-
                 {(() => {
                   const date = launch?.last_updated || (launch?.updatedAt ?? launch?.updated_at);
                   const s = timeAgoString(date);
                   return s ? <TelemetryRow label="Last sync" value={s} scrambleDelay={1900} /> : null;
                 })()}
-
                 {(() => {
                   const parts: string[] = [];
                   parts.push('LL2');
@@ -662,14 +767,10 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                   const hasYoutube = !!(launch?.webcast_live || (launch?.vid_urls && launch.vid_urls.length > 0 && launch.vid_urls.some((v: any) => (v.url || '').includes('youtube'))));
                   if (hasYoutube) parts.push('YOUTUBE');
                   const src = parts.join(' / ');
-                  return src ? (
-                    <TelemetryRow label="Sources" value={src} scrambleDelay={2000} />
-                  ) : null;
+                  return src ? <TelemetryRow label="Sources" value={src} scrambleDelay={2000} /> : null;
                 })()}
-
               </div>
 
-              {/* Bottom terminator */}
               <div className="flex items-center gap-3 mt-1 font-mono text-[8px] uppercase tracking-[0.4em] text-zinc-700">
                 <span>End of feed</span>
                 <div data-line-draw className="h-px flex-1 bg-white/5 origin-left" />
@@ -678,15 +779,11 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
           </div>
         </div>
 
-        {/* Scroll-cue line at bottom centre */}
+        {/* Scroll cue */}
         <div
-          onClick={() => {
-            window.scrollTo({
-              top: window.innerHeight - 64,
-              behavior: 'smooth'
-            });
-          }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group cursor-pointer"
+          data-scroll-cue
+          onClick={() => window.scrollTo({ top: window.innerHeight - 64, behavior: 'smooth' })}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group cursor-pointer will-change-transform"
         >
           <span className="font-mono text-[8px] uppercase tracking-[0.4em] text-[#FF5500] opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none mb-3">
             Scroll Down
@@ -702,15 +799,19 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         <style>{`
           @keyframes hero-scroll-cue {
             0%, 100% { transform: scaleY(0.3); transform-origin: top; opacity: 0.25; }
-            50%      { transform: scaleY(1);   transform-origin: top; opacity: 1; }
+            50%       { transform: scaleY(1);   transform-origin: top; opacity: 1; }
           }
         `}</style>
       </section>
 
       {/* ============================================================ */}
       {/* FEATURED INTEL CAROUSEL                                       */}
+      {/* Pinned by GSAP while capabilities panel rises over it        */}
       {/* ============================================================ */}
-      <section className="relative w-full border-t border-b border-white/10 bg-zinc-950">
+      <section
+        data-carousel-section
+        className="relative w-full border-t border-b border-white/10 bg-zinc-950 will-change-transform"
+      >
         <LandingCarousel slides={buildCarouselSlides(apod, launch, article)} />
       </section>
 
@@ -719,48 +820,66 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       {/* ============================================================ */}
       <section
         data-features-section
-        className="relative py-24 md:py-32 px-6 md:px-12 bg-black overflow-hidden"
+        data-capabilities-overlay
+        className="relative z-10 py-24 md:py-32 px-6 md:px-12 bg-black overflow-hidden"
       >
+        {/* Parallax metallic bg */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           data-grid-bg
-          src="/grid-bg.png"
+          src="metallictiles.jpg"
           alt=""
           className="absolute inset-0 w-full h-[130%] object-cover opacity-20 pointer-events-none mix-blend-screen will-change-transform"
         />
 
         <div className="relative z-10 max-w-7xl mx-auto">
-          <div data-section-eyebrow className="text-center mb-16 md:mb-24">
-            <div className="font-mono text-[10px] text-[#FF6B35] uppercase tracking-[0.5em] mb-3">
+
+          {/* Eyebrow + headline */}
+          <div className="text-center mb-16 md:mb-24">
+            <div
+              data-capabilities-tag
+              className="font-mono text-[10px] text-[#FF6B35] uppercase tracking-[0.5em] mb-3 will-change-transform"
+            >
               [Capabilities]
             </div>
-            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-normal mb-4">
+            <h2
+              data-capabilities-headline
+              className="text-3xl md:text-5xl font-black uppercase tracking-normal mb-4 will-change-transform"
+            >
               Mission Capabilities
             </h2>
-            <p className="font-mono text-sm text-zinc-500 uppercase tracking-widest">
+            <p
+              data-capabilities-sub
+              className="font-mono text-sm text-zinc-500 uppercase tracking-widest will-change-transform"
+            >
               Comprehensive telemetry for orbital operations
             </p>
           </div>
 
+          {/* Feature cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
                 accent: '#FF6B35',
+                number: '01',
                 title: 'Global Manifest',
                 copy: 'Track upcoming orbital launches from all agencies and providers worldwide with real-time countdowns and detailed mission intel.',
               },
               {
                 accent: '#18BBF7',
+                number: '02',
                 title: 'Starship Hub',
                 copy: "Dedicated telemetry for SpaceX's Starship program. Monitor vehicle statuses, historical test flights, and program milestones.",
               },
               {
                 accent: '#FF6B35',
+                number: '03',
                 title: 'Orbital News',
                 copy: 'Curated feed of the latest spaceflight news and dispatches from trusted aerospace publications.',
               },
               {
                 accent: '#18BBF7',
+                number: '04',
                 title: 'APOD Archive',
                 copy: "Daily astronomical observations and cosmic imagery, provided directly by NASA's Astronomy Picture of the Day API.",
               },
@@ -771,19 +890,35 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                 className="group relative bg-[#0a0a0a] border border-white/10 p-8 hover:border-white/30 transition-colors will-change-transform"
                 style={{ transformStyle: 'preserve-3d' }}
               >
+                {/* Top accent line draws on hover */}
                 <div
                   className="absolute top-0 left-0 w-full h-px scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-700"
                   style={{ background: `linear-gradient(to right, ${feat.accent}, transparent)` }}
                 />
 
-                <h3 className="text-xl font-bold uppercase tracking-tight mb-3">
+                {/* Number */}
+                <div
+                  data-card-number
+                  className="font-mono text-[10px] uppercase tracking-[0.4em] mb-4 will-change-transform"
+                  style={{ color: feat.accent }}
+                >
+                  {feat.number}
+                </div>
+
+                <h3 data-card-title className="text-xl font-bold uppercase tracking-tight mb-3 will-change-transform">
                   {feat.title}
                 </h3>
                 <p className="text-sm text-zinc-400 leading-relaxed">{feat.copy}</p>
 
-                {/* Brutalist corner ticks on hover */}
+                {/* Brutalist corner tick */}
                 <div
                   className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                  style={{ borderColor: feat.accent }}
+                />
+
+                {/* Bottom corner tick */}
+                <div
+                  className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
                   style={{ borderColor: feat.accent }}
                 />
               </div>
@@ -793,39 +928,56 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       </section>
 
       {/* ============================================================ */}
-      {/* ATMOSPHERIC FOOTER — PREPARE FOR LIFTOFF                      */}
+      {/* LIFTOFF — atmospheric closing section                         */}
       {/* ============================================================ */}
       <section
         data-earth-section
         className="relative py-32 px-6 overflow-hidden border-t border-white/10 bg-black flex items-center justify-center min-h-[80vh]"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* Earth image — parallax + scale scrub */}
         <img
           data-earth-image
           src="/feature-earth.png"
           alt="Earth from Orbit"
           className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-luminosity will-change-transform"
         />
-        <div className="absolute inset-0 bg-linear-to-t from-black via-black/60 to-black/20" />
+
+        {/* Layered vignettes */}
+        <div data-earth-vignette className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/20 will-change-opacity" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.8)_100%)]" />
+
+        {/* Horizontal rule above content */}
+        <div
+          data-earth-rule
+          className="absolute top-1/2 -translate-y-32 left-0 right-0 mx-auto w-px h-16 bg-gradient-to-b from-transparent via-white/20 to-transparent origin-center will-change-transform"
+        />
 
         <div className="relative z-10 max-w-4xl mx-auto text-center">
-          <Globe
-            data-earth-icon
-            className="w-12 h-12 text-[#18BBF7] mx-auto mb-6 opacity-80 will-change-transform"
-          />
+
+          {/* Headline */}
           <h2
             data-earth-headline
-            className="text-3xl md:text-5xl font-black uppercase tracking-normal mb-6"
+            className="text-3xl md:text-5xl font-black uppercase tracking-normal mb-4"
           >
             <SplitChars text="Prepare for Liftoff" />
           </h2>
+
+          {/* Thin accent rule under headline */}
+          <div
+            data-earth-headline-rule
+            className="h-px w-32 bg-[#18BBF7]/50 mx-auto mb-8 origin-center will-change-transform"
+          />
+
+          {/* Body copy */}
           <p
             data-earth-copy
-            className="text-lg text-zinc-300 font-light mb-10 max-w-2xl mx-auto"
+            className="text-lg text-zinc-300 font-light mb-8 max-w-2xl mx-auto will-change-transform"
           >
             Stay ahead of the curve with our comprehensive launch tracking terminal —
-            engineered for aerospace enthusiasts and professionals.
+            engineered for aerospace enthusiasts around the world.
           </p>
+
+          {/* CTA */}
           <Link
             href="/launches"
             data-earth-cta

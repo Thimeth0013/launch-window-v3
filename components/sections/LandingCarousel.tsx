@@ -91,14 +91,14 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
       defaults: { ease: 'power3.inOut' },
       onComplete: () => {
         isAnimating.current = false;
-        
+
         // Start the progress bar for the next slide
         if (progressRef.current) {
           progressTweenRef.current = gsap.fromTo(progressRef.current,
             { scaleX: 0 },
-            { 
-              scaleX: 1, 
-              duration: AUTOPLAY_DELAY / 1000, 
+            {
+              scaleX: 1,
+              duration: AUTOPLAY_DELAY / 1000,
               ease: 'none',
               onComplete: () => goNextRef.current && goNextRef.current()
             }
@@ -192,16 +192,16 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
   useEffect(() => {
     populateSlide(0);
 
-    const entrance = gsap.timeline({ 
-      defaults: { ease: 'power3.out' }, 
+    const entrance = gsap.timeline({
+      defaults: { ease: 'power3.out' },
       delay: 0.2,
       onComplete: () => {
         if (progressRef.current) {
           progressTweenRef.current = gsap.fromTo(progressRef.current,
             { scaleX: 0 },
-            { 
-              scaleX: 1, 
-              duration: AUTOPLAY_DELAY / 1000, 
+            {
+              scaleX: 1,
+              duration: AUTOPLAY_DELAY / 1000,
               ease: 'none',
               onComplete: () => goNextRef.current && goNextRef.current()
             }
@@ -250,7 +250,7 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
   // Autoplay is seamlessly managed by GSAP timelines linking goTo and goNext.
 
   return (
-    <div ref={containerRef} className="relative w-full h-[85vh] md:h-[80vh] overflow-hidden bg-black">
+    <div ref={containerRef} className="relative w-full h-[85vh] md:h-[90vh] overflow-hidden bg-black">
       {/* Background images for smooth hardware-accelerated crossfading */}
       {slides.map((s, idx) => (
         // eslint-disable-next-line @next/next/no-img-element
