@@ -755,7 +755,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                   />
                 )}
                 {(() => {
-                  const date = launch?.last_updated || (launch?.updatedAt ?? launch?.updated_at);
+                  const date = launch?.updatedAt || launch?.updated_at || launch?.last_updated;
                   const s = timeAgoString(date);
                   return s ? <TelemetryRow label="Last sync" value={s} scrambleDelay={1900} /> : null;
                 })()}
