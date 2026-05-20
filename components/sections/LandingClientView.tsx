@@ -139,6 +139,14 @@ function TelemetryRow({
 
 export default function LandingClientView({ apod, launch, article }: LandingClientViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [bgImage, setBgImage] = useState<string>('/cap1.webp');
+
+  useEffect(() => {
+    // 24-hour daily changing image from cap1.webp to cap7.webp
+    // Math.floor(Date.now() / 86400000) counts full UTC days since epoch.
+    const dayIndex = (Math.floor(Date.now() / 86400000) % 7) + 1;
+    setBgImage(`/cap${dayIndex}.webp`);
+  }, []);
 
   const dynamicSentences = [
     'Track Global Orbital Launches',
@@ -359,9 +367,9 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         pinSpacing: false,
       });
 
-      // Capabilities panel rises from below — scrubbed to scroll
+      // Capabilities panel rises from below — scrubbed to scroll with safe, smooth overlap
       gsap.from('[data-capabilities-overlay]', {
-        yPercent: 35,
+        yPercent: 15,
         ease: 'none',
         scrollTrigger: {
           trigger: '[data-capabilities-overlay]',
@@ -445,12 +453,15 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         scrollTrigger: { trigger: '[data-features-section]', start: 'top 67%' },
       });
 
-      // Grid bg slow drift (parallax)
-      gsap.to('[data-grid-bg]', {
-        yPercent: 25,
-        ease: 'none',
-        scrollTrigger: { trigger: '[data-features-section]', start: 'top bottom', end: 'bottom top', scrub: 1 },
-      });
+      // Grid bg slow drift (parallax) — balanced fromTo to ensure the h-[130%] image always covers the container
+      gsap.fromTo('[data-grid-bg]',
+        { yPercent: -15 },
+        {
+          yPercent: 15,
+          ease: 'none',
+          scrollTrigger: { trigger: '[data-features-section]', start: 'top bottom', end: 'bottom top', scrub: 1 },
+        }
+      );
 
       /* ── 3D tilt + border glow on hover ─────────────────────── */
       const cards = gsap.utils.toArray<HTMLElement>('[data-feature-card]');
@@ -462,8 +473,8 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
           const px = (e.clientX - rect.left) / rect.width - 0.5;
           const py = (e.clientY - rect.top) / rect.height - 0.5;
           gsap.to(card, {
-            rotationY: px * 10,
-            rotationX: -py * 10,
+            rotationY: px * 20,
+            rotationX: -py * 20,
             transformPerspective: 900,
             transformOrigin: 'center center',
             duration: 0.45,
@@ -827,9 +838,13 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           data-grid-bg
-          src="metallictiles.jpg"
+          src={bgImage}
           alt=""
-          className="absolute inset-0 w-full h-[130%] object-cover opacity-20 pointer-events-none mix-blend-screen will-change-transform"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/cap1.webp';
+          }}
+          className="absolute inset-0 w-full h-[130%] object-cover opacity-25 pointer-events-none mix-blend-screen will-change-transform"
         />
 
         <div className="relative z-10 max-w-7xl mx-auto">
@@ -887,15 +902,9 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
               <div
                 key={i}
                 data-feature-card
-                className="group relative bg-[#0a0a0a] border border-white/10 p-8 hover:border-white/30 transition-colors will-change-transform"
+                className="group relative bg-[#0a0a0a]/40 backdrop-blur-xs border border-white/10 p-8 hover:border-white/30 transition-colors will-change-transform"
                 style={{ transformStyle: 'preserve-3d' }}
               >
-                {/* Top accent line draws on hover */}
-                <div
-                  className="absolute top-0 left-0 w-full h-px scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-700"
-                  style={{ background: `linear-gradient(to right, ${feat.accent}, transparent)` }}
-                />
-
                 {/* Number */}
                 <div
                   data-card-number
