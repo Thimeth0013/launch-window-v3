@@ -142,9 +142,12 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
   const [bgImage, setBgImage] = useState<string>('/cap1.webp');
 
   useEffect(() => {
-    // 24-hour daily changing image from cap1.webp to cap7.webp
-    // Math.floor(Date.now() / 86400000) counts full UTC days since epoch.
-    const dayIndex = (Math.floor(Date.now() / 86400000) % 7) + 1;
+    // Rotate through cap1.webp – cap6.webp based on local calendar day.
+    // Using local date ensures the image changes at local midnight, not UTC.
+    const now = new Date();
+    const localDaySerial =
+      now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+    const dayIndex = (localDaySerial % 6) + 1; // 1 – 6
     setBgImage(`/cap${dayIndex}.webp`);
   }, []);
 
