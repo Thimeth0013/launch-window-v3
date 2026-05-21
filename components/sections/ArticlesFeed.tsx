@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
-import { Newspaper, ExternalLink, Rocket, Star, Calendar, Search, X, ChevronDown, Loader2 } from 'lucide-react';
+import { Newspaper, ExternalLink, Rocket, Star, Calendar, Search, X } from 'lucide-react';
 
 interface Article {
   id: number;
@@ -299,32 +299,15 @@ export default function ArticlesFeed({ articles }: { articles: Article[] }) {
 
           {/* Load More — hidden while searching, hidden when nothing left */}
           {!query && hasMore && (
-            <div className="mt-12 flex flex-col items-center gap-3">
+            <div className="flex justify-center mt-8">
               <button
                 id="articles-load-more"
                 onClick={loadMore}
                 disabled={isLoadingMore}
-                className="group relative flex items-center gap-3 px-10 py-4 border-2 border-[#18BBF7]/40 hover:border-[#18BBF7] text-[#18BBF7] font-mono text-[11px] font-bold uppercase tracking-[0.4em] transition-all duration-300 hover:bg-[#18BBF7]/5 hover:shadow-[0_0_24px_rgba(24,187,247,0.15)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="border border-white/20 text-white px-6 py-3 font-mono text-xs uppercase tracking-widest hover:border-white/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {isLoadingMore ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Loading Dispatches...</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-4 h-4 transition-transform duration-300 group-hover:translate-y-0.5" />
-                    <span>Load More Briefings</span>
-                    <ChevronDown className="w-4 h-4 transition-transform duration-300 group-hover:translate-y-0.5" />
-                  </>
-                )}
-                {/* Corner accents */}
-                <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-[#FF6B35] pointer-events-none" />
-                <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-[#FF6B35] pointer-events-none" />
+                {isLoadingMore ? 'Loading...' : 'Load More'}
               </button>
-              <p className="font-mono text-[10px] text-zinc-700 uppercase tracking-widest">
-                {loadedArticles.length} dispatches loaded
-              </p>
             </div>
           )}
 
