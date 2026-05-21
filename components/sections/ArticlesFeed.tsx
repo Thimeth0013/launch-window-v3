@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
-import { Newspaper, ExternalLink, Rocket, Star, Calendar, Search, X } from 'lucide-react';
+import { Newspaper, ExternalLink, Rocket, Star, Calendar, Search, X, ChevronDown, Loader2 } from 'lucide-react';
 
 interface Article {
   id: number;
@@ -18,6 +18,8 @@ interface Article {
   authors?: Array<{ name?: string }>;
   launches?: Array<{ launch_id?: string; provider?: string }>;
 }
+
+const PAGE_SIZE = 25;
 
 function ArticleRow({ article, index }: { article: Article; index: number }) {
   const publishedDate = new Date(article.published_at);
@@ -136,12 +138,14 @@ function ArticleRow({ article, index }: { article: Article; index: number }) {
 
 export default function ArticlesFeed({ articles }: { articles: Article[] }) {
   const [query, setQuery] = useState('');
+  const [loadedArticles, setLoadedArticles] = useState<Article[]>(articles);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(articles.length === PAGE_SIZE);
   const feedRef = useRef<HTMLDivElement>(null);
+  // Tracks IDs of newly appended articles so we animate only them
+  const newIdsRef = useRef<Set<number>>(new Set());
 
-  // Scroll-triggered fade-in for the article rows. Runs once on mount; search
-  // filtering doesn't re-run the scroll animations (keystroke-by-keystroke
-  // flicker is worse than letting filtered-back-in cards appear at their
-  // natural state).
+  // Initial scroll-triggered fade-in (runs once on mount)
   useEffect(() => {
     if (!feedRef.current) return;
     gsap.registerPlugin(ScrollTrigger);
@@ -169,26 +173,63 @@ export default function ArticlesFeed({ articles }: { articles: Article[] }) {
     return () => ctx.revert();
   }, []);
 
-  // Searching without scrolling would otherwise leave below-fold rows stuck
-  // at the pre-scroll opacity 0 — their ScrollTrigger never fired. Force-reveal
-  // every currently-rendered row on each query change. Skipped when the query
-  // is empty so the initial scroll-in animation on mount isn't overwritten.
+  // Animate only newly-loaded cards after state update
+  useEffect(() => {
+    if (newIdsRef.current.size === 0) return;
+    newIdsRef.current = new Set();
+
+    // Wait one tick so the new DOM nodes are painted
+    requestAnimationFrame(() => {
+      const newCards = Array.from(
+        feedRef.current?.querySelectorAll<HTMLElement>('[data-article-card][data-new]') ?? []
+      );
+      if (newCards.length === 0) return;
+      gsap.fromTo(
+        newCards,
+        { opacity: 0, y: 50 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.7,
+          stagger: 0.08,
+          ease: 'power2.out',
+          onComplete: () => newCards.forEach((c) => c.removeAttribute('data-new')),
+        }
+      );
+    });
+  }, [loadedArticles]);
+
+  // Force-reveal all cards when searching (avoids stuck opacity-0)
   useEffect(() => {
     if (!query) return;
     const feed = feedRef.current;
     if (!feed) return;
     const cards = Array.from(feed.querySelectorAll<HTMLElement>('[data-article-card]'));
     if (cards.length === 0) return;
-    gsap.to(cards, {
-      opacity: 1,
-      y: 0,
-      duration: 0.3,
-      ease: 'power2.out',
-      overwrite: true,
-    });
+    gsap.to(cards, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out', overwrite: true });
   }, [query]);
 
-  const filtered = articles.filter((a) => {
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const res = await fetch(`/api/articles?limit=${PAGE_SIZE}&offset=${loadedArticles.length}`);
+      if (!res.ok) throw new Error('fetch failed');
+      const next: Article[] = await res.json();
+
+      // Tag new IDs before state update so the animation effect sees them
+      newIdsRef.current = new Set(next.map((a) => a.id));
+
+      setLoadedArticles((prev) => [...prev, ...next]);
+      setHasMore(next.length === PAGE_SIZE);
+    } catch {
+      // Silently fail — keep existing articles visible
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, loadedArticles.length]);
+
+  const filtered = loadedArticles.filter((a) => {
     if (!query) return true;
     const q = query.toLowerCase();
     return (
@@ -243,13 +284,60 @@ export default function ArticlesFeed({ articles }: { articles: Article[] }) {
 
       {/* Feed */}
       {filtered.length > 0 ? (
-        <div ref={feedRef} className="space-y-6 md:space-y-8">
-          {filtered.map((article, index) => (
-            <div key={article.id} data-article-card>
-              <ArticleRow article={article} index={index} />
+        <>
+          <div ref={feedRef} className="space-y-6 md:space-y-8">
+            {filtered.map((article, index) => (
+              <div
+                key={article.id}
+                data-article-card
+                {...(newIdsRef.current.has(article.id) ? { 'data-new': '' } : {})}
+              >
+                <ArticleRow article={article} index={index} />
+              </div>
+            ))}
+          </div>
+
+          {/* Load More — hidden while searching, hidden when nothing left */}
+          {!query && hasMore && (
+            <div className="mt-12 flex flex-col items-center gap-3">
+              <button
+                id="articles-load-more"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="group relative flex items-center gap-3 px-10 py-4 border-2 border-[#18BBF7]/40 hover:border-[#18BBF7] text-[#18BBF7] font-mono text-[11px] font-bold uppercase tracking-[0.4em] transition-all duration-300 hover:bg-[#18BBF7]/5 hover:shadow-[0_0_24px_rgba(24,187,247,0.15)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Loading Dispatches...</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4 transition-transform duration-300 group-hover:translate-y-0.5" />
+                    <span>Load More Briefings</span>
+                    <ChevronDown className="w-4 h-4 transition-transform duration-300 group-hover:translate-y-0.5" />
+                  </>
+                )}
+                {/* Corner accents */}
+                <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-[#FF6B35] pointer-events-none" />
+                <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-[#FF6B35] pointer-events-none" />
+              </button>
+              <p className="font-mono text-[10px] text-zinc-700 uppercase tracking-widest">
+                {loadedArticles.length} dispatches loaded
+              </p>
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* End of feed indicator — shows once fully exhausted */}
+          {!query && !hasMore && loadedArticles.length > PAGE_SIZE && (
+            <div className="mt-12 flex flex-col items-center gap-2">
+              <div className="w-px h-8 bg-gradient-to-b from-[#18BBF7]/40 to-transparent" />
+              <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-[0.4em]">
+                End of Archive — {loadedArticles.length} Dispatches
+              </p>
+            </div>
+          )}
+        </>
       ) : (
         <div className="flex flex-col items-center justify-center py-40 border border-dashed border-zinc-900 bg-[#050505]">
           <Newspaper className="w-16 h-16 text-zinc-900 mb-6" strokeWidth={1} />

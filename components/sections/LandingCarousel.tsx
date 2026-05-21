@@ -449,7 +449,7 @@ export function buildCarouselSlides(
     ctaLabel: 'Read Full Article',
     ctaHref: article?.url || '/articles',
     ctaExternal: !!article?.url,
-    secondaryLabel: 'All Articles',
+    secondaryLabel: 'Other News',
     secondaryHref: '/articles',
     icon: <Newspaper className="w-10 h-10" />,
   });

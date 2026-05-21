@@ -33,7 +33,7 @@ export default function AppFooter() {
           </Link>
           <span className="text-zinc-800">/</span>
           <Link href="/articles" className="text-zinc-400 hover:text-[#18BBF7] transition-colors">
-            Articles
+            News
           </Link>
           <span className="text-zinc-800">/</span>
           <Link href="/starship" className="text-zinc-400 hover:text-[#FF6B35] transition-colors">

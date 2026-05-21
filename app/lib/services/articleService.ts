@@ -5,7 +5,7 @@ import ArticleSync from '../db/models/ArticleSync';
 
 const SNAPI_BASE = 'https://api.spaceflightnewsapi.net/v4';
 const ARTICLE_SYNC_TTL_MS = 60 * 60 * 1000;
-const ARTICLE_FETCH_LIMIT = 25;
+const ARTICLE_FETCH_LIMIT = 50;
 
 interface ApiArticle {
   id: number;
@@ -69,6 +69,26 @@ export const fetchLatestArticles = async () => {
     } catch (error: any) {
       console.error(`❌ [ARTICLE_ERROR] Failed to save article ${apiArticle.id}: ${error.message}`);
     }
+  }
+
+  // Prune: keep only the 100 most recent articles; delete the rest.
+  try {
+    const MAX_ARTICLES = 100;
+    const keepers = await Article.find({})
+      .sort({ published_at: -1 })
+      .skip(MAX_ARTICLES)
+      .select('_id')
+      .lean();
+
+    if (keepers.length > 0) {
+      const ids = keepers.map((a: any) => a._id);
+      const { deletedCount } = await Article.deleteMany({ _id: { $in: ids } });
+      if (deletedCount > 0) {
+        console.log(`🗑️  [ARTICLE_PRUNE] Removed ${deletedCount} stale article(s) beyond the 100-article cap.`);
+      }
+    }
+  } catch (error: any) {
+    console.warn(`⚠️ [ARTICLE_PRUNE] Pruning failed (non-fatal): ${error.message}`);
   }
 
   console.log(`✅ [ARTICLE_SYNC] Completed processing ${apiArticles.length} articles`);

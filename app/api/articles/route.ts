@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     await connectDB();
 
     const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '25', 10), 100);
+    const offset = Math.max(parseInt(request.nextUrl.searchParams.get('offset') || '0', 10), 0);
     const featuredOnly = request.nextUrl.searchParams.get('featured') === 'true';
 
     const query: any = {};
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const articles = await Article.find(query)
       .sort({ published_at: -1 })
+      .skip(offset)
       .limit(limit)
       .select('-_id')
       .lean();

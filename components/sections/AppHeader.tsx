@@ -132,7 +132,7 @@ export default function AppHeader() {
           href="/articles"
           className={`transition-colors ${isArticles ? 'text-[#18BBF7]' : 'text-zinc-300 hover:text-[#18BBF7]'}`}
         >
-          Articles
+          News
         </Link>
         <Link
           href="/starship"
