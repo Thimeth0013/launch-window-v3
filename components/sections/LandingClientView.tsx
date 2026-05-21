@@ -185,11 +185,13 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
     if (isNaN(then)) return null;
     const diff = Date.now() - then;
     const sec = Math.floor(diff / 1000);
-    if (sec < 60) return '< 1M AGO';
+    if (sec < 60) return '< 1MIN AGO';
     const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}M AGO`;
+    if (min < 60) return `${min}MIN AGO`;
     const hrs = Math.floor(min / 60);
-    if (hrs < 24) return `${hrs}H AGO`;
+    if (hrs < 24) {
+      return hrs === 1 ? '1HR AGO' : `${hrs}HRS AGO`;
+    }
     const days = Math.floor(hrs / 24);
     return `${days}D AGO`;
   }

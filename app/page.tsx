@@ -4,7 +4,11 @@ import { getApod, type Apod } from "@/app/lib/services/nasaService";
 import AppHeader from "@/components/sections/AppHeader";
 import LandingClientView from "@/components/sections/LandingClientView";
 
-export const revalidate = 60;
+// Render on every request rather than serving a 60s-stale ISR snapshot.
+// The underlying data layer still has its own freshness gates (ensureFreshLaunches
+// = 1h, ensureFreshArticles = 1h, getApod = Next.js fetch cache), so this only
+// re-renders the page — it doesn't blast TSD/SNAPI on every visit.
+export const dynamic = 'force-dynamic';
 
 async function getLatestLaunch() {
   try {
