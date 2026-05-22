@@ -61,6 +61,7 @@ export default function AppHeader() {
   const isLaunches = pathname?.startsWith('/launches');
   const isArticles = pathname?.startsWith('/articles');
   const isStarship = pathname?.startsWith('/starship');
+  const isTracker = pathname?.startsWith('/tracker');
 
   // Home keeps its solid brutalist bar always. Internal pages start transparent
   // and switch to a glass-blur + thin bottom border once the user scrolls.
@@ -113,9 +114,8 @@ export default function AppHeader() {
               Launch Window
             </Link>
 
-            <span className="hidden md:inline text-zinc-700 font-mono text-[10px]">//</span>
             <span className="hidden md:inline font-mono text-[10px] text-zinc-500 uppercase tracking-widest tabular-nums">
-              Terminal 2.3.0{today && ` / ${today}`}
+              //{today && ` ${today} `}
             </span>
           </>
         )}
@@ -139,6 +139,18 @@ export default function AppHeader() {
           className={`transition-colors ${isStarship ? 'text-[#FF6B35]' : 'text-zinc-300 hover:text-[#FF6B35]'}`}
         >
           Starship
+        </Link>
+        <Link
+          href="/tracker"
+          className={`flex items-center gap-1.5 transition-colors ${isTracker ? 'text-[#18BBF7]' : 'text-zinc-300 hover:text-[#18BBF7]'}`}
+        >
+          {isTracker && (
+            <span className="relative flex w-1.5 h-1.5 shrink-0">
+              <span className="absolute inline-flex w-full h-full rounded-full bg-[#18BBF7] opacity-75 animate-ping" />
+              <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[#18BBF7]" />
+            </span>
+          )}
+          Tracker
         </Link>
       </nav>
     </header>
