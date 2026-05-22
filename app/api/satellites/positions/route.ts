@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureFreshSatellites, getSatellitePositions, SATELLITE_CONFIGS } from '../../../lib/services/sscService';
+import { ensureFreshSatellites, getSatellitePositions, SATELLITE_CONFIGS } from '../../../lib/services/n2yoService';
 
-export const revalidate = 300;
+// Revalidate every 3 minutes to align with N2YO's 5-minute window limitation
+export const revalidate = 180;
 
 const VALID_IDS = new Set(SATELLITE_CONFIGS.map((c) => c.id));
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
       { positions, fetchedAt: new Date().toISOString() },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'public, s-maxage=180, stale-while-revalidate=120',
           'X-Satellite-Count': positions.length.toString(),
         },
       },

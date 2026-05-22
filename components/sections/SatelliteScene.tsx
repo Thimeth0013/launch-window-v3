@@ -185,7 +185,7 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
         }
       } catch { /* keep last-good */ }
     };
-    const id = setInterval(poll, 5 * 60 * 1000);
+    const id = setInterval(poll, 3 * 60 * 1000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
@@ -485,7 +485,7 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
 
       {/* Source label — bottom-right stack */}
       <div className="pointer-events-none absolute top-20 right-6 text-[10px] font-mono text-white/35 tracking-[0.15em] text-right">
-        SOURCE · SSCWEB.GSFC.NASA.GOV<br />
+        SOURCE · N2YO.com<br />
         SCALE · 1u = 1000 km
       </div>
 

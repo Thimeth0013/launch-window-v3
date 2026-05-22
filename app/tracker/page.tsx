@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import AppHeader from '../../components/sections/AppHeader';
 import SatelliteScene, { SatellitePosition } from '../../components/sections/SatelliteScene';
-import { ensureFreshSatellites, getSatellitePositions } from '../lib/services/sscService';
+import { ensureFreshSatellites, getSatellitePositions } from '../lib/services/n2yoService';
 
 export const metadata: Metadata = {
   title: 'Launch Window',
-  description: 'Live XYZ positions of selected satellites tracked by NASA SSC.',
+  description: 'Live XYZ positions of selected satellites tracked by N2YO.com',
 };
 
 export const dynamic = 'force-dynamic';
