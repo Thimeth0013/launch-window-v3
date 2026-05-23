@@ -485,7 +485,6 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
 
       {/* Source label — bottom-right stack */}
       <div className="pointer-events-none absolute top-20 right-6 text-[10px] font-mono text-white/35 tracking-[0.15em] text-right">
-        SOURCE · N2YO.com<br />
         SCALE · 1u = 1000 km
       </div>
 

@@ -144,12 +144,6 @@ export default function AppHeader() {
           href="/tracker"
           className={`flex items-center gap-1.5 transition-colors ${isTracker ? 'text-[#18BBF7]' : 'text-zinc-300 hover:text-[#18BBF7]'}`}
         >
-          {isTracker && (
-            <span className="relative flex w-1.5 h-1.5 shrink-0">
-              <span className="absolute inline-flex w-full h-full rounded-full bg-[#18BBF7] opacity-75 animate-ping" />
-              <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[#18BBF7]" />
-            </span>
-          )}
           Tracker
         </Link>
       </nav>

@@ -29,11 +29,10 @@ function ArticleRow({ article, index }: { article: Article; index: number }) {
 
   return (
     <article
-      className={`group relative grid grid-cols-1 md:grid-cols-12 gap-0 border-2 ${
-        isFeatured
+      className={`group relative grid grid-cols-1 md:grid-cols-12 gap-0 border-2 ${isFeatured
           ? 'border-[#FF6B35]/40 hover:border-[#FF6B35]'
           : 'border-[#18BBF7]/20 hover:border-[#18BBF7]'
-      } bg-black/90 hover:shadow-[0_0_32px_rgba(24,187,247,0.12)] transition-all duration-500`}
+        } bg-black/90 hover:shadow-[0_0_32px_rgba(24,187,247,0.12)] transition-all duration-500`}
     >
       <div className="absolute top-3 left-3 z-20 font-mono text-[10px] text-zinc-700 group-hover:text-[#FF6B35] tracking-widest tabular-nums transition-colors">
         #{String(index + 1).padStart(2, '0')}
@@ -256,9 +255,8 @@ export default function ArticlesFeed({ articles }: { articles: Article[] }) {
         <div className="relative group w-full md:w-96 lg:w-130">
           <div className="absolute inset-y-0 left-3 md:left-4 flex items-center pointer-events-none">
             <Search
-              className={`w-3 h-3 md:w-4 md:h-4 transition-colors duration-300 ${
-                query ? 'text-[#18BBF7]' : 'text-gray-600'
-              }`}
+              className={`w-3 h-3 md:w-4 md:h-4 transition-colors duration-300 ${query ? 'text-[#18BBF7]' : 'text-gray-600'
+                }`}
             />
           </div>
 

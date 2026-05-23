@@ -302,7 +302,7 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
           </h3>
           <p
             ref={descRef}
-            className="text-sm md:text-base text-zinc-300 line-clamp-2 lg:line-clamp-3 mb-6 max-w-2xl leading-relaxed"
+            className="text-sm md:text-base text-zinc-300 mb-6 max-w-2xl leading-relaxed"
             style={{ willChange: 'transform, opacity' }}
           >
             —
@@ -409,7 +409,7 @@ export function buildCarouselSlides(
     imageAlt: apod?.title || 'NASA APOD',
     metaLine: `NASA / Astronomy Picture Of The Day / ${apod?.date || '—'}`,
     title: apod?.title || 'Cosmic feed unavailable',
-    description: apod?.explanation?.slice(0, 180) + '…' || undefined,
+    description: apod?.explanation || undefined,
     ctaLabel: apod?.media_type === 'video' ? 'Watch Source' : 'View HD',
     ctaHref: apod?.hdurl || apod?.url || '#',
     ctaExternal: true,
@@ -445,7 +445,7 @@ export function buildCarouselSlides(
     imageAlt: article?.title || 'Space article',
     metaLine: `${article?.news_site || 'Unknown Source'} / ${article ? new Date(article.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}`,
     title: article?.title || 'No dispatches available',
-    description: article?.summary?.slice(0, 160) + '…' || undefined,
+    description: article?.summary,
     ctaLabel: 'Read Full Article',
     ctaHref: article?.url || '/articles',
     ctaExternal: !!article?.url,
