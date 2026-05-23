@@ -139,21 +139,13 @@ function TelemetryRow({
 
 export default function LandingClientView({ apod, launch, article }: LandingClientViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [bgImage, setBgImage] = useState<string>('/cap1.webp');
 
-  useEffect(() => {
-    const now = new Date();
-    const localDaySerial =
-      now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
-    const dayIndex = (localDaySerial % 6) + 1;
-    setBgImage(`/cap${dayIndex}.webp`);
-  }, []);
 
   const dynamicSentences = [
     'Track Global Orbital Launches',
     'Latest Spaceflight News Feed',
     'Starship Development Feed',
-    'NASA Daily Cosmic Archive',
+    'Track Satellite Locations',
     'Live Mission Telemetry',
   ];
 
@@ -171,8 +163,8 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       <span className="text-white font-mono text-sm tracking-widest">LAUNCH LIBRARY 2</span>.
     </>,
     <>
-      Explore the cosmos with daily astronomical observations and cosmic imagery, provided directly by{' '}
-      <span className="text-white font-mono text-sm tracking-widest">NASA's</span> APOD API.
+      Live XYZ positions of satellites — a wireframe orbital grid. Project orbital paths, calculate pass predictions, and monitor real-time telemetry from active constellations in LEO via the{' '}
+      <span className="text-white font-mono text-sm tracking-widest">N2YO</span> API.
     </>,
     <>
       Comprehensive mission telemetry and live data feeds for ongoing orbital operations, webcasts via{' '}
@@ -494,14 +486,6 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         }
       );
 
-      gsap.from('[data-earth-rule]', {
-        scaleX: 0,
-        transformOrigin: 'center center',
-        duration: 1.2,
-        ease: 'power3.inOut',
-        scrollTrigger: { trigger: '[data-earth-section]', start: 'top 70%' },
-      });
-
       gsap.from('[data-earth-icon]', {
         opacity: 0,
         scale: 0.4,
@@ -623,7 +607,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         >
           <div className="w-full max-w-[1700px] mx-auto grid grid-cols-12 gap-x-6 lg:gap-x-12">
             <div className="col-span-12 lg:col-span-8 xl:col-span-8">
-              <h1 className="grid items-center font-display font-bold uppercase tracking-normal mb-2 overflow-hidden py-2 md:py-4">
+              <h1 className="grid items-center font-display font-bold uppercase tracking-normal mb-2 overflow-hidden py-2 md:py-4 max-w-[90%] md:max-w-[85%] lg:max-w-[90%] xl:max-w-[80%]">
                 {dynamicSentences.map((s, i) => (
                   <span
                     key={i}
@@ -709,7 +693,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         <div
           data-scroll-cue
           onClick={() => window.scrollTo({ top: window.innerHeight - 64, behavior: 'smooth' })}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group cursor-pointer will-change-transform"
+          className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group cursor-pointer will-change-transform"
         >
           <span className="font-mono text-[8px] uppercase tracking-[0.4em] text-[#FF5500] opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none mb-3">
             Scroll Down
@@ -749,124 +733,127 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       >
         {/* Background image + gradient — fills the pinned section (z-0). */}
         <img
-          src={bgImage}
+          src="/capBg.webp"
           alt=""
-          onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src = '/cap1.webp';
-          }}
-          className="absolute inset-0 w-full h-[130%] object-cover opacity-25 mix-blend-screen pointer-events-none"
+          className="absolute inset-0 w-full h-[130%] object-cover pointer-events-none"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/95 via-black/60 to-black/95 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/95 pointer-events-none" />
 
         {/* Text block — z-30, sits at the top of the section.
             GSAP fades it in on entry; it stays put during the pinned scroll. */}
-        <div className="relative z-30 w-full text-center pt-24 md:pt-32 px-6 pointer-events-none">
+        <div className="relative z-30 w-full text-center pt-12 md:pt-20 px-6 pointer-events-none">
           <div
             data-capabilities-tag
-            className="font-mono text-[10px] text-[#FF6B35] uppercase tracking-[0.5em] mb-3 will-change-transform"
+            className="font-mono text-[10px] text-[#FF6B35] uppercase tracking-[0.5em] mb-2 will-change-transform"
           >
             [Capabilities]
           </div>
           <h2
             data-capabilities-headline
-            className="text-3xl md:text-5xl font-black uppercase tracking-normal mb-4 text-white will-change-transform"
+            className="text-3xl md:text-4xl font-black uppercase tracking-normal mb-2 text-white will-change-transform"
           >
             Mission Capabilities
           </h2>
           <p
             data-capabilities-sub
-            className="font-mono text-sm text-zinc-500 uppercase tracking-widest will-change-transform max-w-xl mx-auto"
+            className="font-mono text-[12px] text-zinc-500 uppercase tracking-widest will-change-transform max-w-xl mx-auto"
           >
             Comprehensive telemetry for orbital operations
           </p>
         </div>
-
-        {/* Cards — absolute, animated by the scrub timeline in the useGSAP
-            block. Each card's CSS `top` is its FINAL stacked position; GSAP
-            sets the initial y-offset so card 0 peeks from the bottom while
-            cards 1-4 sit just out of sight below the viewport. */}
         {[
           {
             accent: '#FF6B35',
             number: '01',
             title: 'Global Manifest',
-            copy: 'Track upcoming orbital launches from all agencies and providers worldwide with real-time countdowns and detailed mission intel.',
+            kicker: ['LAUNCH LIBRARY 2', 'MANIFEST', 'ACTIVE'],
+            copy: 'Track upcoming orbital launches from all agencies and providers worldwide with real-time countdowns and detailed mission intel. Access comprehensive launch vehicle specifications, payload details, mission constraints, and live webcast links integrated directly into a mission-critical command interface.',
             href: '/launches',
           },
           {
             accent: '#18BBF7',
             number: '02',
             title: 'Starship Hub',
-            copy: "Dedicated telemetry for SpaceX's Starship program. Monitor vehicle statuses, historical test flights, and program milestones.",
+            kicker: ['SPACEX', 'BOCA CHICA', 'TEST FLIGHT'],
+            copy: "Dedicated telemetry for SpaceX's Starship program. Monitor vehicle statuses, historical test flights, and program milestones. Dive into the engineering details of the world's most powerful launch vehicle, tracking iterative design changes and orbital refueling progress.",
             href: '/starship',
           },
           {
             accent: '#FF6B35',
             number: '03',
             title: 'Orbital News',
-            copy: 'Curated feed of the latest spaceflight news and dispatches from trusted aerospace publications.',
+            kicker: ['SNAPI', 'AEROSPACE', 'GLOBAL'],
+            copy: 'Curated feed of the latest spaceflight news and dispatches from trusted aerospace publications. Stay informed on critical industry developments, agency funding, regulatory shifts, and technological breakthroughs across the global space economy.',
             href: '/articles',
           },
           {
             accent: '#18BBF7',
             number: '04',
             title: 'Satellite Tracker',
-            copy: 'Live XYZ positions of satellites tracked by NASA SSC — ISS, MMS formation, Cluster, and more, rendered in a wireframe orbital grid.',
+            kicker: ['N2YO', 'TELEMETRY', 'LEO'],
+            copy: 'Live XYZ positions of critical orbital infrastructure tracked by N2YO. Monitor LEO space stations (ISS, Tiangong), polar earth observers (Landsat, Terra), global navigation networks (GPS, Galileo), deep space observatories like Chandra, and historic relics like Vanguard 1 in real-time 3D space.',
             href: '/tracker',
-          },
-          {
-            accent: '#FF6B35',
-            number: '05',
-            title: 'APOD Archive',
-            copy: "Daily astronomical observations and cosmic imagery, provided directly by NASA's Astronomy Picture of the Day API.",
-            href: '/apod',
-          },
+          }
         ].map((feat, i) => (
           <div
             key={i}
             data-capability-card={i}
-            className="absolute left-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-4xl h-80 bg-[#0a0a0a] border border-white/10 overflow-hidden shadow-2xl"
+            className="absolute left-1/2 w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-5xl h-[65vh] min-h-[400px] max-h-[38rem] bg-[#050505] border border-white/20 overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.9)] rounded-none group"
             style={{
-              top: `calc(55vh + ${i * 12}px)`,
+              top: `calc(28vh + ${i * 12}px)`,
               zIndex: 20 + i,
               transformOrigin: 'top center',
               willChange: 'transform',
+              transform: 'translateX(-50%)',
             }}
           >
-            <div className="group relative w-full h-full flex flex-col">
-              {/* TOP — Number + Title (left) and Access Module CTA (right) */}
-              <div className="px-8 md:px-12 pt-6 md:pt-7 pb-5 flex items-center justify-between gap-4 md:gap-6 bg-black/40 border-b border-white/10">
-                <div className="flex items-center gap-4 md:gap-6 min-w-0">
-                  <div
-                    className="font-mono text-[12px] uppercase tracking-[0.5em] font-bold whitespace-nowrap"
-                    style={{ color: feat.accent }}
-                  >
-                    [{feat.number}]
-                  </div>
-                  <h3
-                    className="text-2xl md:text-3xl font-black uppercase tracking-tight leading-[1.1] text-white group-hover:text-[color:var(--accent)] transition-colors duration-300 truncate"
-                    style={{ '--accent': feat.accent } as React.CSSProperties}
-                  >
-                    {feat.title}
-                  </h3>
-                </div>
-                <Link
-                  href={feat.href}
-                  className="inline-flex items-center gap-2 font-mono text-[11px] md:text-[12px] uppercase tracking-widest font-black transition-all duration-300 group-hover:gap-4 whitespace-nowrap shrink-0"
-                  style={{ color: feat.accent }}
-                >
-                  Access Module
-                  <ChevronRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
-                </Link>
+            {/* Background Image Setup */}
+            <div
+              className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: `url('/cap${i + 1}.webp')` }}
+            />
+
+            {/* Dark Gradient Overlay */}
+            <div className="absolute inset-0 z-0 bg-gradient-to-r from-black/95 via-black/70 to-black/20" />
+            <div className="absolute inset-0 z-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+
+            {/* --- TOP RIGHT: Module Indicator --- */}
+            <div className="absolute top-6 right-6 md:top-8 md:right-8 z-10 hidden sm:flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+              <span className="font-bold text-white">[ {feat.number} ]</span>
+              <span>/</span>
+              <Link
+                href={feat.href}
+                className="group/link flex items-center gap-2 transition-colors cursor-pointer"
+                style={{ '--accent': feat.accent } as React.CSSProperties}
+              >
+                <span className="group-hover/link:text-[color:var(--accent)] text-white transition-colors">{feat.title}</span>
+                <span className="opacity-0 -translate-x-2 transition-all duration-300 group-hover/link:opacity-100 group-hover/link:translate-x-0 font-bold group-hover/link:text-[color:var(--accent)]">{'>'}</span>
+              </Link>
+            </div>
+
+            {/* --- MAIN CONTENT AREA --- */}
+            <div className="relative z-10 flex h-full flex-col justify-center px-6 md:px-12 lg:px-20 w-full max-w-[900px]">
+
+              {/* Kicker / Breadcrumbs */}
+              <div className="font-mono text-[9px] md:text-[10px] tracking-[0.25em] uppercase mb-4 md:mb-6 flex flex-wrap gap-2 md:gap-3" style={{ color: feat.accent }}>
+                <span>{feat.kicker[0]}</span>
+                <span className="text-zinc-600">/</span>
+                <span>{feat.kicker[1]}</span>
+                <span className="text-zinc-600">/</span>
+                <span>{feat.kicker[2]}</span>
               </div>
 
-              {/* BODY — Description, anchored to the top of the body area */}
-              <div className="flex-1 px-8 md:px-12 pt-5 md:pt-6 pb-6 md:pb-8">
-                <p className="text-sm md:text-base text-zinc-400 group-hover:text-zinc-200 leading-relaxed transition-colors duration-300">
-                  {feat.copy}
-                </p>
-              </div>
+              {/* Massive Title */}
+              <h3 className="text-2xl md:text-4xl lg:text-5xl font-black text-white uppercase tracking-tighter leading-[0.95] max-w-2xl mb-6 md:mb-8">
+                {feat.title}
+              </h3>
+
+              {/* Body Copy */}
+              <p className="max-w-xl text-sm md:text-base leading-[1.8] text-zinc-300 font-medium md:text-left drop-shadow-md">
+                {feat.copy}
+              </p>
+
+
             </div>
           </div>
         ))}
@@ -877,11 +864,11 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       {/* ============================================================ */}
       <section
         data-earth-section
-        className="relative py-32 px-6 overflow-hidden border-t border-white/10 bg-black flex items-center justify-center min-h-[80vh]"
+        className="relative py-22 px-6 overflow-hidden border-t border-white/10 bg-black flex items-center justify-center min-h-[80vh]"
       >
         <img
           data-earth-image
-          src="/feature-earth.png"
+          src="/feature-earth.webp"
           alt="Earth from Orbit"
           className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-luminosity will-change-transform"
         />
@@ -889,37 +876,31 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         <div data-earth-vignette className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/20 will-change-opacity" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.8)_100%)]" />
 
-        <div
-          data-earth-rule
-          className="absolute top-1/2 -translate-y-32 left-0 right-0 mx-auto w-px h-16 bg-gradient-to-b from-transparent via-white/20 to-transparent origin-center will-change-transform"
-        />
-
-        <div className="relative z-10 max-w-4xl mx-auto text-center">
+        <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center justify-center text-center mt-12 mb-8">
           <h2
             data-earth-headline
-            className="text-3xl md:text-5xl font-black uppercase tracking-normal mb-4"
+            className="text-4xl md:text-6xl font-black uppercase tracking-normal mb-6"
           >
             <SplitChars text="Prepare for Liftoff" />
           </h2>
 
           <div
             data-earth-headline-rule
-            className="h-px w-32 bg-[#18BBF7]/50 mx-auto mb-8 origin-center will-change-transform"
+            className="h-px w-32 bg-[#18BBF7]/50 mx-auto mb-10 origin-center will-change-transform"
           />
 
           <p
             data-earth-copy
-            className="text-lg text-zinc-300 font-light mb-8 max-w-2xl mx-auto will-change-transform"
+            className="text-xl text-zinc-300 font-light mb-12 max-w-2xl mx-auto will-change-transform leading-relaxed"
           >
-            Stay ahead of the curve with our comprehensive launch tracking terminal —
-            engineered for aerospace enthusiasts around the world.
+            Stay ahead of the curve with our comprehensive launch tracking terminal engineered for aerospace enthusiasts around the world.
           </p>
 
           <Link
             href="/launches"
             data-earth-cta
             data-magnetic
-            className="inline-flex items-center gap-2 px-8 py-4 bg-white text-black font-mono text-sm uppercase tracking-widest font-black transition-colors hover:bg-[#18BBF7] will-change-transform"
+            className="inline-flex items-center justify-center gap-3 px-10 py-5 bg-white text-black font-mono text-sm uppercase tracking-widest font-black transition-colors hover:bg-[#18BBF7] will-change-transform"
           >
             Access Terminal
           </Link>
