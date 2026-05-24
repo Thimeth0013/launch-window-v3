@@ -603,7 +603,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
 
         <div
           data-hero-content
-          className="relative z-10 min-h-[calc(100vh-64px)] flex items-center px-4 md:px-8"
+          className="relative z-10 min-h-[calc(100vh-64px)] flex items-center pt-12 md:pt-24 pb-16 px-4 md:px-8"
         >
           <div className="w-full max-w-[1700px] mx-auto grid grid-cols-12 gap-x-6 lg:gap-x-12">
             <div className="col-span-12 lg:col-span-8 xl:col-span-8">
@@ -693,7 +693,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
         <div
           data-scroll-cue
           onClick={() => window.scrollTo({ top: window.innerHeight - 64, behavior: 'smooth' })}
-          className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group cursor-pointer will-change-transform"
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center group cursor-pointer will-change-transform"
         >
           <span className="font-mono text-[8px] uppercase tracking-[0.4em] text-[#FF5500] opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none mb-3">
             Scroll Down

@@ -250,7 +250,7 @@ export default function LandingCarousel({ slides }: LandingCarouselProps) {
   // Autoplay is seamlessly managed by GSAP timelines linking goTo and goNext.
 
   return (
-    <div ref={containerRef} className="relative w-full h-[85vh] md:h-[90vh] overflow-hidden bg-black">
+    <div ref={containerRef} className="relative w-full h-[85vh] md:h-[95vh] overflow-hidden bg-black">
       {/* Background images for smooth hardware-accelerated crossfading */}
       {slides.map((s, idx) => (
         // eslint-disable-next-line @next/next/no-img-element
