@@ -664,7 +664,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
                 {(launch?.name) && (
                   <TelemetryRow
                     label="Upcoming"
-                    value={(launch.name || '').slice(0, 26).toUpperCase()}
+                    value={(launch.name || '').slice(0, 36).toUpperCase()}
                     scrambleDelay={1800}
                   />
                 )}
