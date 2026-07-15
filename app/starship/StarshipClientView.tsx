@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   Radio,
   AlertTriangle,
@@ -8,14 +8,14 @@ import {
   ArrowUpRight,
   MapPin,
   Clock,
-  Play,
-  Info,
 } from 'lucide-react';
 import type {
   StarshipVehicle,
   StarshipOrbiter,
   StarshipStream,
 } from '@/app/lib/services/starshipService';
+import OptimizedImage from '@/components/ui/OptimizedImage';
+import StarshipTimeline from '@/components/sections/StarshipTimeline';
 
 function extractSerialNum(str?: string) {
   if (!str) return 0;
@@ -34,8 +34,8 @@ export default function StarshipClientView({ data }: { data: any }) {
   const roadClosures = data.road_closures || [];
   const notices = data.notices || [];
 
-  const rawVehicles = data.vehicles || [];
-  const rawOrbiters = data.orbiters || [];
+  const rawVehicles = (data.vehicles || []).filter((v: any) => !v.is_placeholder);
+  const rawOrbiters = (data.orbiters || []).filter((o: any) => !o.is_placeholder);
 
   const vehicles: any[] = [];
   const orbiters: any[] = [...rawOrbiters];
@@ -57,39 +57,11 @@ export default function StarshipClientView({ data }: { data: any }) {
   const upcoming = data.upcoming || { launches: [], events: [] };
   const previous = data.previous || { launches: [], events: [] };
 
-  const [activeYear, setActiveYear] = useState<string>('');
-
-  useEffect(() => {
-    if (activeTab !== 'timeline') return;
-
-    let observer: IntersectionObserver;
-    const timeout = setTimeout(() => {
-      observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              setActiveYear(entry.target.id.replace('year-', ''));
-            }
-          });
-        },
-        { rootMargin: '-20% 0px -70% 0px' }
-      );
-
-      const elements = document.querySelectorAll('[id^="year-"]');
-      elements.forEach(el => observer.observe(el));
-    }, 100);
-
-    return () => {
-      clearTimeout(timeout);
-      if (observer) observer.disconnect();
-    };
-  }, [activeTab]);
-
   const tabs = [
     { id: 'timeline', label: 'Timeline' },
-    { id: 'streams', label: 'Streams', count: liveStreams.length },
     { id: 'ships', label: 'Ships', count: orbiters.length },
     { id: 'boosters', label: 'Boosters', count: vehicles.length },
+    { id: 'streams', label: 'Streams', count: liveStreams.length },
   ];
 
   const allTimelineItems = [
@@ -219,79 +191,7 @@ export default function StarshipClientView({ data }: { data: any }) {
 
       {/* ====== TAB CONTENT ====== */}
 
-      {activeTab === 'timeline' && (() => {
-        const groupedByYear = allTimelineItems.reduce((acc: any, item: any) => {
-          const dt = item.date ? new Date(item.date) : null;
-          const year = dt ? dt.getFullYear().toString() : 'Unknown';
-          if (!acc[year]) acc[year] = [];
-          acc[year].push(item);
-          return acc;
-        }, {});
-
-        const sortedYears = Object.keys(groupedByYear).sort((a, b) => {
-          if (a === 'Unknown') return 1;
-          if (b === 'Unknown') return -1;
-          return Number(b) - Number(a);
-        });
-
-        return (
-          <div className="flex gap-4 md:gap-8 lg:gap-16 items-start">
-
-            {/* Main Timeline */}
-            <div className="flex-1 relative border-l border-zinc-800 ml-4 md:ml-8 pb-12 mt-4 space-y-24">
-              {sortedYears.map((year) => (
-                <div key={year} id={`year-${year}`} className="scroll-mt-32 space-y-12">
-                  <div className="relative pl-8 md:pl-12">
-                    {/* Year Marker */}
-                    <div className="absolute -left-[5px] top-2.5 w-2.5 h-2.5 rounded-full bg-zinc-600 outline outline-4 outline-black"></div>
-                    <h2 className="font-mono text-xl md:text-3xl font-black text-white/50 tracking-widest">{year}</h2>
-                  </div>
-
-                  {groupedByYear[year].map((item: any, i: number) => {
-                    const isUpcoming = item._bucket === 'upcoming';
-                    const nodeClass = isUpcoming
-                      ? 'border-[#FF6B35] bg-[#FF6B35]/20 shadow-[0_0_10px_rgba(255,107,53,0.5)]'
-                      : 'border-zinc-500 bg-zinc-900 group-hover:border-white';
-
-                    return (
-                      <div key={`${item._bucket}-${item._type}-${item.id || i}`} className="relative pl-8 md:pl-12 group">
-                        <div className={`absolute w-4 h-4 rounded-full -left-[9px] top-6 border-2 transition-colors duration-500 z-10 ${nodeClass}`}></div>
-                        <div className="absolute h-px w-4 md:w-8 bg-zinc-800 left-0 top-8 group-hover:bg-zinc-600 transition-colors duration-500"></div>
-                        <TimelineEventCard item={item} />
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-
-            {/* Mini Timeline (Sticky Nav) */}
-            <nav className="hidden lg:block w-32 shrink-0 sticky top-32">
-              <div className="border-l border-zinc-800 pl-4 py-2 space-y-6">
-                <span className="block font-mono text-[10px] text-zinc-600 uppercase tracking-widest mb-4">Jump To</span>
-                {sortedYears.map((year) => {
-                  const isActive = activeYear === year;
-                  return (
-                    <a
-                      key={year}
-                      href={`#year-${year}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        document.getElementById(`year-${year}`)?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      className={`block font-mono text-sm transition-all relative group ${isActive ? 'text-white font-black scale-105 origin-left' : 'text-zinc-400 hover:text-white'}`}
-                    >
-                      <span className={`absolute -left-[21px] top-1.5 w-2 h-2 rounded-full transition-all ${isActive ? 'bg-[#FF6B35] shadow-[0_0_8px_rgba(255,107,53,0.8)]' : 'bg-zinc-800 group-hover:bg-white'}`}></span>
-                      {year}
-                    </a>
-                  );
-                })}
-              </div>
-            </nav>
-
-          </div>
-        );
-      })()}
+      {activeTab === 'timeline' && <StarshipTimeline items={allTimelineItems} />}
 
       {activeTab === 'streams' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -407,108 +307,6 @@ export default function StarshipClientView({ data }: { data: any }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Timeline Event Card (Unified)                                       */
-/* ------------------------------------------------------------------ */
-
-function TimelineEventCard({ item }: { item: any }) {
-  const dt = item.date ? new Date(item.date) : null;
-  const isLaunch = item._type === 'launch';
-
-  // Define type name and color
-  const typeName = isLaunch ? 'Test Flight' : (item.type?.name || 'Event');
-  const typeNameLower = typeName.toLowerCase();
-
-  // Distinct colors
-  let typeColorClass = 'text-zinc-400 border-zinc-500/30 bg-zinc-500/5';
-  let badgeColorClass = 'text-zinc-400';
-
-  if (isLaunch || typeNameLower.includes('flight') || typeNameLower.includes('launch')) {
-    typeColorClass = 'text-[#18BBF7] border-[#18BBF7]/30 bg-[#18BBF7]/5';
-    badgeColorClass = 'text-[#18BBF7]';
-  } else if (typeNameLower.includes('fire') || typeNameLower.includes('test')) {
-    typeColorClass = 'text-[#FF6B35] border-[#FF6B35]/30 bg-[#FF6B35]/5';
-    badgeColorClass = 'text-[#FF6B35]';
-  }
-
-  const imageUrl = item.image?.image_url || item.image?.thumbnail_url || item.feature_image;
-
-  return (
-    <article className="group bg-white/[0.02] border border-white/5 hover:border-white/20 transition-all duration-500 overflow-hidden flex flex-col lg:flex-row">
-      <div className="p-6 md:p-8 flex-1 flex flex-col">
-
-        {/* Header / Meta Data */}
-        <div className="flex flex-wrap items-center gap-3 mb-6 font-mono text-[10px] uppercase tracking-widest">
-          <span className={`${item._bucket === 'upcoming' ? 'text-white' : 'text-zinc-500'} font-black`}>
-            {item._bucket === 'upcoming' ? 'Upcoming' : 'Past'}
-          </span>
-          <span className="text-zinc-800">/</span>
-          <span className={`px-2 py-0.5 border ${typeColorClass} font-black`}>
-            {typeName}
-          </span>
-          {dt && (
-            <>
-              <span className="text-zinc-800">/</span>
-              <span className="text-zinc-400">
-                {dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-            </>
-          )}
-        </div>
-
-        {/* Main Content */}
-        <h3 className="text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-tight mb-4 group-hover:text-white transition-colors leading-[1.1]">
-          {item.name}
-        </h3>
-
-        <p className="text-zinc-400 text-sm md:text-base leading-relaxed mb-8 max-w-3xl flex-1">
-          {item.mission?.description || item.description || 'No additional details available.'}
-        </p>
-
-        {/* Interactive Elements */}
-        {(item.vid_urls?.length > 0 || item.info_urls?.length > 0 || item.info_url || item.vid_url) && (
-          <div className="flex flex-wrap items-center gap-4 mt-auto pt-6 border-t border-white/5">
-            {(item.vid_urls?.[0]?.url || item.vid_url) && (
-              <a
-                href={item.vid_urls?.[0]?.url || item.vid_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-white text-black px-4 py-2 font-mono text-[10px] uppercase tracking-widest font-black hover:bg-[#FF6B35] hover:text-white transition-colors"
-              >
-                <Play className="w-3 h-3" />
-                Watch Replay
-              </a>
-            )}
-
-            {(item.info_urls?.[0]?.url || item.info_url) && (
-              <a
-                href={item.info_urls?.[0]?.url || item.info_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 border border-white/20 text-white px-4 py-2 font-mono text-[10px] uppercase tracking-widest hover:border-white/50 transition-colors"
-              >
-                <Info className="w-3 h-3" />
-                More Info
-              </a>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Media / Image */}
-      {imageUrl && (
-        <div className="w-full lg:w-[400px] xl:w-[500px] h-64 lg:h-auto relative border-t lg:border-t-0 lg:border-l border-white/5 overflow-hidden shrink-0">
-          <OptimizedImage
-            src={imageUrl}
-            alt={item.name}
-            className=" opacity-70 group-hover:opacity-100 transition-all duration-700"
-          />
-        </div>
-      )}
-    </article>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* Stream                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -559,55 +357,61 @@ function VehicleCard({ vehicle }: { vehicle: StarshipVehicle }) {
   const status = (vehicle.status?.name || '').toLowerCase();
   const isActive = status.includes('active') || status.includes('proven');
   const isDestroyed = status.includes('lost') || status.includes('destroyed') || status.includes('scrapped');
+  const imageUrl = vehicle.image?.image_url;
 
   return (
-    <article className="relative border-2 border-[#FF6B35]/20 hover:border-[#FF6B35] hover:shadow-[0_0_24px_rgba(255,107,53,0.12)] bg-black/90 transition-all overflow-hidden flex flex-col h-full">
-      <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[#FF6B35] z-10 pointer-events-none" />
-
-      {vehicle.image?.image_url && (
-        <div className="relative aspect-video overflow-hidden border-b border-[#FF6B35]/10 shrink-0">
-          <OptimizedImage
-            src={vehicle.image.image_url}
-            alt={vehicle.serial_number || 'Booster'}
-            className="brightness-90 transition-transform duration-700 hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent" />
-          <span className="absolute top-3 left-3 font-mono text-[9px] font-black uppercase tracking-[0.3em] text-[#FF6B35] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-            {vehicle.launcher_config?.name || 'Super Heavy'}
-          </span>
-          {vehicle.status?.name && (
-            <span
-              className={`absolute bottom-3 right-3 font-mono text-[9px] uppercase tracking-widest px-2 py-1 backdrop-blur ${isActive
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                : isDestroyed
-                  ? 'bg-red-500/20 text-red-300 border border-red-500/40'
-                  : 'bg-black/60 text-zinc-300 border border-white/10'
-                }`}
-            >
-              {vehicle.status.name}
-            </span>
-          )}
-        </div>
+    <article className="group relative aspect-video overflow-hidden border border-white/5 bg-black">
+      {imageUrl ? (
+        <OptimizedImage
+          src={imageUrl}
+          alt={vehicle.serial_number || 'Booster'}
+          className="absolute inset-0 w-full h-full object-cover brightness-90 transition-transform duration-700 group-hover:scale-105"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-white/3" />
       )}
 
-      <div className="p-4 md:p-5 space-y-3 flex-1 flex flex-col">
-        <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight">
+      <div className="absolute inset-0 bg-linear-to-t from-black via-black/60 to-black/10" />
+
+      {/* Top badges — pinned to the top, independent of everything below */}
+      <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-4">
+        <span className="font-mono text-[9px] font-black uppercase tracking-[0.25em] text-[#FF6B35] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+          {vehicle.launcher_config?.name || 'Super Heavy'}
+        </span>
+        {vehicle.status?.name && (
+          <span
+            className={`font-mono text-[9px] uppercase tracking-widest px-2 py-1 backdrop-blur ${isActive
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+              : isDestroyed
+                ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                : 'bg-black/60 text-zinc-300 border border-white/10'
+              }`}
+          >
+            {vehicle.status.name}
+          </span>
+        )}
+      </div>
+
+      {/* Title + summary — pinned to the bottom, fades out on hover */}
+      <div className="absolute inset-x-0 bottom-0 p-4 transition-opacity duration-300 group-hover:opacity-0">
+        <h3 className="text-lg md:text-xl font-black uppercase tracking-tight mb-1">
           {vehicle.serial_number || 'Unknown Booster'}
         </h3>
-
         {vehicle.details && (
-          <p className="text-xs text-zinc-400 leading-relaxed flex-1">{vehicle.details}</p>
+          <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-8">{vehicle.details}</p>
         )}
+      </div>
 
-        <div className="grid grid-cols-3 gap-2 font-mono pt-4 border-t border-white/5 mt-auto">
+      {/* Stat table — pinned to the same bottom edge, fades in on hover */}
+      <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 font-mono">
           <Stat label="Flights" value={vehicle.flights ?? 0} />
           <Stat
             label="Landings"
             value={`${vehicle.successful_landings ?? 0}/${vehicle.attempted_landings ?? 0}`}
           />
-          <Stat label="Proven" value={vehicle.flight_proven ? 'YES' : 'NO'} />
-          {vehicle.first_launch_date && <Stat label="1st Launch" value={new Date(vehicle.first_launch_date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' })} />}
-          {vehicle.last_launch_date && <Stat label="Last Launch" value={new Date(vehicle.last_launch_date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' })} />}
+          <Stat label="Proven" value={vehicle.flight_proven ? 'Yes' : 'No'} />
+          {vehicle.last_launch_date && <Stat label="Last Flight" value={new Date(vehicle.last_launch_date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' })} />}
           {vehicle.fastest_turnaround && <Stat label="Fast Turn" value={formatDuration(vehicle.fastest_turnaround)} />}
         </div>
       </div>
@@ -623,60 +427,66 @@ function OrbiterCard({ orbiter }: { orbiter: StarshipOrbiter }) {
   const status = (orbiter.status?.name || '').toLowerCase();
   const isActive = status.includes('active');
   const isLost = status.includes('lost') || status.includes('destroyed') || status.includes('retired');
+  const imageUrl = orbiter.image?.image_url;
 
   return (
-    <article className="relative border-2 border-[#18BBF7]/20 hover:border-[#18BBF7] hover:shadow-[0_0_24px_rgba(24,187,247,0.15)] bg-black/90 transition-all overflow-hidden flex flex-col h-full">
-      <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[#18BBF7] z-10 pointer-events-none" />
-
-      {orbiter.image?.image_url && (
-        <div className="relative aspect-video overflow-hidden border-b border-[#18BBF7]/10 shrink-0">
-          <OptimizedImage
-            src={orbiter.image.image_url}
-            alt={orbiter.name || 'Ship'}
-            className="brightness-90 transition-transform duration-700 hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent" />
-          {orbiter.in_space ? (
-            <span className="absolute top-3 left-3 flex items-center gap-1.5 bg-[#18BBF7] px-2 py-1 font-mono text-[9px] font-black uppercase tracking-[0.3em] text-black">
-              <span className="w-1.5 h-1.5 bg-black rounded-full animate-ping" />
-              In Space
-            </span>
-          ) : (
-            <span className="absolute top-3 left-3 font-mono text-[9px] font-black uppercase tracking-[0.3em] text-[#18BBF7] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-              {orbiter.spacecraft_config?.name || 'Starship'}
-            </span>
-          )}
-          {orbiter.status?.name && (
-            <span
-              className={`absolute bottom-3 right-3 font-mono text-[9px] uppercase tracking-widest px-2 py-1 backdrop-blur ${isActive
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                : isLost
-                  ? 'bg-red-500/20 text-red-300 border border-red-500/40'
-                  : 'bg-black/60 text-zinc-300 border border-white/10'
-                }`}
-            >
-              {orbiter.status.name}
-            </span>
-          )}
-        </div>
+    <article className="group relative aspect-video overflow-hidden border border-white/5 bg-black">
+      {imageUrl ? (
+        <OptimizedImage
+          src={imageUrl}
+          alt={orbiter.name || 'Ship'}
+          className="absolute inset-0 w-full h-full object-cover brightness-90 transition-transform duration-700 group-hover:scale-105"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-white/3" />
       )}
 
-      <div className="p-4 md:p-5 space-y-3 flex-1 flex flex-col">
-        <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight">
+      <div className="absolute inset-0 bg-linear-to-t from-black via-black/60 to-black/10" />
+
+      {/* Top badges — pinned to the top, independent of everything below */}
+      <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-4">
+        {orbiter.in_space ? (
+          <span className="flex items-center gap-1.5 bg-[#18BBF7] px-2 py-1 font-mono text-[9px] font-black uppercase tracking-[0.25em] text-black">
+            <span className="w-1.5 h-1.5 bg-black rounded-full animate-ping" />
+            In Space
+          </span>
+        ) : (
+          <span className="font-mono text-[9px] font-black uppercase tracking-[0.25em] text-[#18BBF7] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+            {orbiter.spacecraft_config?.name || 'Starship'}
+          </span>
+        )}
+        {orbiter.status?.name && (
+          <span
+            className={`font-mono text-[9px] uppercase tracking-widest px-2 py-1 backdrop-blur ${isActive
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+              : isLost
+                ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                : 'bg-black/60 text-zinc-300 border border-white/10'
+              }`}
+          >
+            {orbiter.status.name}
+          </span>
+        )}
+      </div>
+
+      {/* Title + summary — pinned to the bottom, fades out on hover */}
+      <div className="absolute inset-x-0 bottom-0 p-4 transition-opacity duration-300 group-hover:opacity-0">
+        <h3 className="text-lg md:text-xl font-black uppercase tracking-tight mb-1">
           {orbiter.name || orbiter.serial_number || 'Unknown Ship'}
         </h3>
-
         {orbiter.description && (
-          <p className="text-xs text-zinc-400 leading-relaxed flex-1">{orbiter.description}</p>
+          <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-8">{orbiter.description}</p>
         )}
+      </div>
 
-        <div className="grid grid-cols-3 gap-2 font-mono pt-4 border-t border-white/5 mt-auto">
+      {/* Stat table — pinned to the same bottom edge, fades in on hover */}
+      <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 font-mono">
           <Stat label="Flights" value={orbiter.flights_count ?? 0} />
           <Stat label="In Space" value={formatDuration(orbiter.time_in_space)} />
           <Stat label="Docked" value={formatDuration(orbiter.time_docked)} />
           {(orbiter.spacecraft_config as any)?.type?.name && <Stat label="Type" value={(orbiter.spacecraft_config as any).type.name} className="col-span-2" />}
           {orbiter.mission_ends_count !== undefined && <Stat label="Mission Ends" value={orbiter.mission_ends_count} />}
-          {orbiter.fastest_turnaround && <Stat label="Fast Turn" value={formatDuration(orbiter.fastest_turnaround)} />}
         </div>
       </div>
     </article>
@@ -689,11 +499,11 @@ function OrbiterCard({ orbiter }: { orbiter: StarshipOrbiter }) {
 
 function Stat({ label, value, className }: { label: string; value: any; className?: string }) {
   return (
-    <div className={`bg-white/[0.02] border border-white/5 p-2 ${className || ''}`}>
-      <div className="text-xs md:text-sm font-black text-white tabular-nums truncate">
+    <div className={className}>
+      <div className="text-sm font-black text-white tabular-nums truncate">
         {value ?? '—'}
       </div>
-      <div className="text-[8px] text-zinc-600 uppercase tracking-widest mt-0.5">{label}</div>
+      <div className="text-[8px] text-zinc-500 uppercase tracking-widest">{label}</div>
     </div>
   );
 }
@@ -710,37 +520,4 @@ function formatDuration(iso?: string): string {
   if (h) return `${h}h`;
   if (mi) return `${mi}m`;
   return '—';
-}
-
-/* ------------------------------------------------------------------ */
-/* Optimized Image                                                     */
-/* ------------------------------------------------------------------ */
-
-function OptimizedImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const [isVisible, setIsVisible] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsVisible(entry.isIntersecting);
-      },
-      { rootMargin: '1200px' } // Keep image loaded within 1200px of viewport
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div ref={ref} className="w-full h-full bg-zinc-900/30 overflow-hidden">
-      {isVisible && (
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          className={`w-full h-full object-cover ${className || ''}`}
-        />
-      )}
-    </div>
-  );
 }
