@@ -161,7 +161,7 @@ export default function LaunchList({ initialLaunches }: LaunchListProps) {
 
       {/* Grid Display */}
       {filteredLaunches.length > 0 ? (
-        <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-10">
+        <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredLaunches.map((launch) => (
             <div key={launch.slug} data-launch-card className="h-full">
               <LaunchCard launch={launch} />

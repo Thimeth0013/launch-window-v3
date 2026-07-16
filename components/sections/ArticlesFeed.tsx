@@ -28,7 +28,7 @@ function ArticleRow({ article, index }: { article: Article; index: number }) {
   const isFeatured = !!article.featured;
 
   const thumbnail = (
-    <div className="relative w-32 sm:w-40 md:w-76 aspect-video shrink-0 overflow-hidden bg-zinc-950">
+    <div className="relative w-32 sm:w-40 md:w-74 aspect-video shrink-0 overflow-hidden bg-zinc-950">
       {article.image_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -52,7 +52,7 @@ function ArticleRow({ article, index }: { article: Article; index: number }) {
       </h2>
 
       {article.summary && (
-        <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed line-clamp-1 md:line-clamp-4">
+        <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed line-clamp-1 md:line-clamp-2">
           {article.summary}
         </p>
       )}
@@ -91,7 +91,7 @@ function ArticleRow({ article, index }: { article: Article; index: number }) {
     <ExternalLink className="w-4 h-4 shrink-0 self-start mt-0.5 text-zinc-700 group-hover:text-[#18BBF7] transition-colors" />
   );
 
-  const rowClassName = 'group flex items-start gap-4 sm:gap-5 py-2';
+  const rowClassName = 'group flex items-start gap-4 sm:gap-5 py-1.5';
 
   return article.url ? (
     <a href={article.url} target="_blank" rel="noopener noreferrer" className={rowClassName}>

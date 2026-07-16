@@ -3,7 +3,11 @@ import ArticlesFeed from '@/components/sections/ArticlesFeed';
 import Particles from '@/components/Particles';
 import { ensureFreshArticles, getLatestArticles } from '@/app/lib/services/articleService';
 
-export const revalidate = 600;
+// force-dynamic so this reflects whatever ensureFreshArticles() currently has
+// in Mongo on every request — that function already gates real SNAPI re-fetches
+// to once per hour, so an additional ISR cache here just adds a second, looser
+// staleness window that let visitors see up to a 10-minute-old article list.
+export const dynamic = 'force-dynamic';
 
 async function getArticles() {
   try {
