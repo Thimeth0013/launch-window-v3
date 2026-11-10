@@ -1,7 +1,18 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useServerTime } from '../../app/lib/hooks/useServerTime';
-import { ChevronLeft, ChevronRight, Activity } from 'lucide-react';
+import { Label, formatTMinus, parseRelativeTime } from '@/components/launch-story/primitives';
+
+// Live flight timeline for the launch story's "Flight Plan" chapter: a
+// horizontally scrolling rail of events from the countdown through the flight.
+//
+// Mission elapsed time comes from `useServerTime` — never Date.now(). Orange
+// is progress: the rail fills orange behind events that have happened, and
+// the event happening now pulses orange. On load (and whenever the active
+// event changes) the rail scrolls the next event into view. The launch time is
+// re-fetched every 30 s so a slip moves the whole timeline.
 
 interface TimelineEvent {
   type: {
@@ -14,371 +25,265 @@ interface TimelineEvent {
 
 interface TimelineEngineProps {
   launchDate: Date;
+  /** Launch slug — used for the /api/launches/[slug] refresh. */
   launchId: string;
   timeline: TimelineEvent[];
-  status: { name: string };
+  status?: { name: string };
 }
 
-// --- LOGIC HELPERS ---
-function parseRelativeTime(relativeTime: string): number | null {
-  const isoDurationMatch = relativeTime.match(/^(-?)PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
-  if (isoDurationMatch) {
-    const [, sign, hours, minutes, seconds] = isoDurationMatch;
-    const totalMs =
-      (parseInt(hours || '0') * 3600 +
-        parseInt(minutes || '0') * 60 +
-        parseFloat(seconds || '0')) * 1000;
-    return sign === '-' ? -totalMs : totalMs;
-  }
+/** Events stay "now" for this long after their mark (and before, in the countdown). */
+const ACTIVE_WINDOW_MS = 30_000;
 
-  const legacyMatch = relativeTime.match(/T([+-])(\d{2}):(\d{2}):(\d{2})/);
-  if (legacyMatch) {
-    const [, sign, hours, minutes, seconds] = legacyMatch;
-    const totalMs =
-      (parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds)) * 1000;
-    return sign === '+' ? totalMs : -totalMs;
-  }
-
-  if (relativeTime === 'P0D') return 0;
-  return null;
-}
-
-function formatRelativeTime(relativeTime: string): string {
-  const timeMs = parseRelativeTime(relativeTime);
-  if (timeMs === null) return relativeTime;
-
-  const isNegative = timeMs < 0;
-  const absMs = Math.abs(timeMs);
-  const hours = Math.floor(absMs / 3600000);
-  const minutes = Math.floor((absMs % 3600000) / 60000);
-  const seconds = Math.floor((absMs % 60000) / 1000);
-
-  const prefix = isNegative ? 'T-' : 'T+';
-
-  if (hours > 0) return `${prefix}${hours}h ${minutes}m`;
-  else if (minutes > 0) return `${prefix}${minutes}m ${seconds}s`;
-  else if (seconds === 0) return 'T-0 (LIFTOFF)';
-  else return `${prefix}${seconds}s`;
-}
+type State = 'past' | 'now' | 'next';
 
 function formatMET(ms: number): string {
-  const isNegative = ms < 0;
-  const absMs = Math.abs(ms);
-  const hours = Math.floor(absMs / 3600000);
-  const minutes = Math.floor((absMs % 3600000) / 60000);
-  const seconds = Math.floor((absMs % 60000) / 1000);
-  return `${isNegative ? '-' : '+'}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  const abs = Math.abs(ms);
+  const days = Math.floor(abs / 86400000);
+  const h = Math.floor((abs % 86400000) / 3600000);
+  const m = Math.floor((abs % 3600000) / 60000);
+  const s = Math.floor((abs % 60000) / 1000);
+  const clock = [h, m, s].map((v) => String(v).padStart(2, '0')).join(':');
+  return `${ms < 0 ? 'T-' : 'T+'}${days ? `${days}d ` : ''}${clock}`;
 }
 
-export default function TimelineEngine({
-  launchDate: initialLaunchDate,
-  launchId,
-  timeline,
-  status,
-}: TimelineEngineProps) {
+export default function TimelineEngine({ launchDate: initialLaunchDate, launchId, timeline }: TimelineEngineProps) {
   const { getServerTime, isLoading } = useServerTime();
-  const [currentMET, setCurrentMET] = useState(0);
-  const [launchDate, setLaunchDate] = useState(new Date(initialLaunchDate));
-  const [activeEvents, setActiveEvents] = useState<Set<number>>(new Set());
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [met, setMet] = useState<number | null>(null);
+  const [launchDate, setLaunchDate] = useState(() => new Date(initialLaunchDate));
   const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
-  const lastFetchTime = useRef<number>(0);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const scroller = useRef<HTMLDivElement>(null);
+  const lastFetch = useRef(0);
+  const lastFocused = useRef<number | null>(null);
 
-  // --- LOGIC EFFECTS ---
+  // Follow slips: re-read the launch time every 30 s.
   useEffect(() => {
-    async function fetchLaunchTime() {
+    async function refresh() {
+      const now = Date.now();
+      if (now - lastFetch.current < 30_000) return;
+      lastFetch.current = now;
       try {
-        const now = Date.now();
-        if (now - lastFetchTime.current < 30000) return;
-        lastFetchTime.current = now;
-        const response = await fetch(`/api/launches/${launchId}`);
-        if (response.ok) {
-          const data = await response.json();
-          const newLaunchDate = new Date(data.date);
-          if (newLaunchDate.getTime() !== launchDate.getTime()) {
-            setLaunchDate(newLaunchDate);
-          }
-        }
+        const res = await fetch(`/api/launches/${launchId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const next = new Date(data.date);
+        if (!Number.isNaN(next.getTime()) && next.getTime() !== launchDate.getTime()) setLaunchDate(next);
       } catch (error) {
-        console.error('❌ [TIMELINE] Error fetching launch time:', error);
+        console.error('[TIMELINE] Error fetching launch time:', error);
       }
     }
-    fetchLaunchTime();
-    const interval = setInterval(fetchLaunchTime, 30000);
-    return () => clearInterval(interval);
+    refresh();
+    const id = setInterval(refresh, 30_000);
+    return () => clearInterval(id);
   }, [launchId, launchDate]);
 
+  // Tick mission elapsed time off the server clock. `getServerTime` is a new
+  // function on every render, so read it through a ref — depending on it
+  // directly would restart this effect (and setMet) on every render, forever.
+  const serverTimeRef = useRef(getServerTime);
+  useEffect(() => {
+    serverTimeRef.current = getServerTime;
+  });
   useEffect(() => {
     if (isLoading) return;
+    const tick = () => setMet(serverTimeRef.current().getTime() - launchDate.getTime());
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [isLoading, launchDate]);
 
-    const interval = setInterval(() => {
-      const now = getServerTime();
-      const met = now.getTime() - launchDate.getTime();
-      setCurrentMET(met);
-
-      const active = new Set<number>();
-      let activeIndex = -1;
-
-      timeline.forEach((event, index) => {
-        const eventTime = parseRelativeTime(event.relative_time);
-        if (eventTime !== null) {
-          const isActive = eventTime < 0
-            ? met >= eventTime - 30000 && met <= eventTime + 30000
-            : met >= eventTime && met < eventTime + 30000;
-
-          if (isActive) {
-            active.add(index);
-            activeIndex = index;
-          }
-        }
-      });
-
-      if (active.size !== activeEvents.size ||
-        Array.from(active).some(idx => !activeEvents.has(idx))) {
-        setActiveEvents(active);
-
-        if (activeIndex !== -1 && scrollContainerRef.current) {
-          const container = scrollContainerRef.current;
-          const itemWidth = 200 + 32;
-          const targetScroll = activeIndex * itemWidth - container.clientWidth / 2 + 100;
-
-          const isInView =
-            container.scrollLeft <= targetScroll &&
-            targetScroll <= container.scrollLeft + container.clientWidth;
-
-          if (!isInView) {
-            container.scrollTo({
-              left: targetScroll,
-              behavior: 'smooth',
-            });
-          }
-        }
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [launchDate, timeline, getServerTime, isLoading, activeEvents]);
-
-  const updateScrollButtons = () => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    setCanScrollLeft(container.scrollLeft > 0);
-    setCanScrollRight(
-      container.scrollLeft < container.scrollWidth - container.clientWidth - 10
-    );
-  };
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const handleScroll = () => { updateScrollButtons(); };
-    container.addEventListener('scroll', handleScroll);
-    updateScrollButtons();
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scroll = (direction: 'left' | 'right') => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const scrollAmount = 300;
-    container.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
-      behavior: 'smooth',
-    });
-  };
-
-  if (!timeline || timeline.length === 0) return null;
-
-  const sortedTimeline = [...timeline].sort(
-    (a, b) =>
-      (parseRelativeTime(a.relative_time) || 0) - (parseRelativeTime(b.relative_time) || 0)
+  const events = useMemo(
+    () =>
+      timeline
+        .map((e) => ({ ...e, t: parseRelativeTime(e.relative_time) }))
+        .filter((e): e is TimelineEvent & { t: number } => e.t !== null)
+        .sort((a, b) => a.t - b.t),
+    [timeline]
   );
 
+  const stateOf = useCallback(
+    (t: number): State => {
+      if (met === null) return 'next';
+      const active =
+        t < 0 ? met >= t - ACTIVE_WINDOW_MS && met <= t + ACTIVE_WINDOW_MS : met >= t && met < t + ACTIVE_WINDOW_MS;
+      if (active) return 'now';
+      return met > t + ACTIVE_WINDOW_MS ? 'past' : 'next';
+    },
+    [met]
+  );
+
+  // The event to keep in view: the one happening now, else the next one up.
+  const focusIndex = useMemo(() => {
+    if (met === null) return null;
+    const now = events.findIndex((e) => stateOf(e.t) === 'now');
+    if (now !== -1) return now;
+    const next = events.findIndex((e) => stateOf(e.t) === 'next');
+    return next === -1 ? events.length - 1 : next;
+  }, [events, met, stateOf]);
+
+  const updateArrows = useCallback(() => {
+    const el = scroller.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    updateArrows();
+    el.addEventListener('scroll', updateArrows, { passive: true });
+    window.addEventListener('resize', updateArrows);
+    return () => {
+      el.removeEventListener('scroll', updateArrows);
+      window.removeEventListener('resize', updateArrows);
+    };
+  }, [updateArrows]);
+
+  const scrollToIndex = useCallback((index: number, behavior: ScrollBehavior = 'smooth') => {
+    const el = scroller.current;
+    const item = el?.querySelectorAll<HTMLElement>('[data-event]')[index];
+    if (!el || !item) return;
+    // Keep one event of context to the left of the focused one.
+    const left = Math.max(0, item.offsetLeft - Math.min(240, el.clientWidth / 4));
+    el.scrollTo({ left, behavior });
+  }, []);
+
+  // Bring the current/next event into view on load and as the mission moves on.
+  useEffect(() => {
+    if (focusIndex === null || focusIndex === lastFocused.current) return;
+    const first = lastFocused.current === null;
+    lastFocused.current = focusIndex;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    scrollToIndex(focusIndex, first || reduce ? 'auto' : 'smooth');
+  }, [focusIndex, scrollToIndex]);
+
+  const page = (dir: -1 | 1) => {
+    const el = scroller.current;
+    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: 'smooth' });
+  };
+
+  if (events.length === 0) return null;
+
   return (
-    <div className="w-full bg-black border border-zinc-800/60 overflow-hidden mb-4 mt-12 relative select-none">
-
-      {/* Header Section */}
-      <div className="relative z-10 px-6 py-6 border-b border-zinc-800/30 bg-black/95">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-
-          {/* Title Area */}
-          <div className="flex items-center gap-4">
-            <div className="p-2 border border-zinc-800/20 bg-zinc-900/50">
-              <Activity className="w-4 h-4 text-[#18BBF7]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-[#18BBF7]">
-                  Mission Timeline
-                </h3>
-                <span className="relative flex w-1.5 h-1.5">
-                  <span className="absolute inline-flex w-full h-full bg-[#FF6B35] opacity-75 animate-ping" />
-                  <span className="relative inline-flex w-1.5 h-1.5 bg-[#FF6B35]" />
-                </span>
-              </div>
-              <div className="flex items-center gap-2 font-mono">
-                <span className="text-xs text-zinc-500 uppercase">Mission Elapsed Time:</span>
-                <span className="text-xs text-zinc-300 tracking-widest font-semibold tabular-nums">
-                  {formatMET(currentMET)}
-                </span>
-              </div>
-            </div>
+    <div>
+      {/* Clock + controls */}
+      <div className="mb-6 flex items-end justify-between gap-4">
+        <div>
+          <Label>Mission clock</Label>
+          <div className="mt-1 font-mono text-xl font-semibold tabular-nums text-white md:text-2xl">
+            {met === null ? 'T-––:––:––' : formatMET(met)}
           </div>
-
-          {/* Controls */}
-          <div className="flex items-center gap-4 self-end md:self-auto">
-            <div className="flex items-center -space-x-px">
+        </div>
+        <div className="flex -space-x-px">
+          {([-1, 1] as const).map((dir) => {
+            const enabled = dir === -1 ? canScrollLeft : canScrollRight;
+            const Icon = dir === -1 ? ChevronLeft : ChevronRight;
+            return (
               <button
-                onClick={() => scroll('left')}
-                disabled={!canScrollLeft}
-                className={`p-2 border border-zinc-800 transition-colors ${canScrollLeft
-                  ? 'hover:bg-zinc-800 text-zinc-300 hover:text-white'
-                  : 'text-zinc-700 cursor-not-allowed'
-                  }`}
+                key={dir}
+                type="button"
+                onClick={() => page(dir)}
+                disabled={!enabled}
+                aria-label={dir === -1 ? 'Earlier events' : 'Later events'}
+                className="relative border border-white/15 p-2.5 text-zinc-300 transition-colors hover:z-10 hover:border-[#FF6B35] hover:text-[#FF6B35] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-[#18BBF7] disabled:cursor-not-allowed disabled:text-zinc-700 disabled:hover:border-white/15"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <Icon className="h-4 w-4" />
               </button>
-              <button
-                onClick={() => scroll('right')}
-                disabled={!canScrollRight}
-                className={`p-2 border border-zinc-800 transition-colors ${canScrollRight
-                  ? 'hover:bg-zinc-800 text-zinc-300 hover:text-white'
-                  : 'text-zinc-700 cursor-not-allowed'
-                  }`}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Timeline Scroll Area */}
-      <div className="relative bg-black/50">
-
-        {/* Scroll Container */}
+      {/* Rail */}
+      <div className="relative">
         <div
-          ref={scrollContainerRef}
-          className="overflow-x-auto overflow-y-hidden px-6 py-12 scroll-smooth"
+          ref={scroller}
+          tabIndex={0}
+          aria-label="Flight timeline, scroll horizontally"
+          className="overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#18BBF7]"
           style={{ scrollbarWidth: 'none' }}
         >
-          <div className="relative inline-flex min-w-full">
-
-            {/* The Rail */}
-            <div className="absolute top-1.75 left-0 right-0 h-px bg-zinc-800" />
-
-            {/* Events */}
-            <div className="flex gap-8 relative">
-              {sortedTimeline.map((event, index) => {
-                const eventTime = parseRelativeTime(event.relative_time);
-                const isActive = activeEvents.has(index);
-                const isPast = eventTime !== null && currentMET > eventTime + 30000;
-
-                return (
+          {/* pl/pt: the rotated diamond nodes poke ~3px outside their box */}
+          <ol className="flex w-max pl-1 pt-1">
+            {events.map((e, i) => {
+              const state = stateOf(e.t);
+              return (
+                <li
+                  key={`${e.relative_time}-${i}`}
+                  data-event
+                  aria-current={state === 'now' ? 'step' : undefined}
+                  className="relative w-44 shrink-0 pr-6 md:w-52"
+                >
+                  {/* Rail segment — orange once this event has passed */}
                   <div
-                    key={index}
-                    className="flex flex-col min-w-[200px] relative group transition-transform duration-300 hover:-translate-y-0.5"
-                  >
-                    {/* Top Node Indicator */}
-                    <div className="relative z-10 flex items-center mb-6 pl-2">
-                      <div className="relative">
-                        {isActive && (
-                          <div className="absolute inset-0 w-3.5 h-3.5 bg-[#FF6B35] rotate-45 animate-ping opacity-60" />
-                        )}
-                        <div
-                          className={`
-                            relative w-3.5 h-3.5 border transition-all duration-500 rotate-45
-                            ${isActive
-                              ? 'bg-[#FF6B35] border-zinc-800 shadow-[0_0_12px_rgba(255,107,53,0.7)]'
-                              : isPast
-                                ? 'bg-zinc-500 border-zinc-800'
-                                : 'bg-black border-zinc-600 group-hover:border-[#18BBF7]/60'
-                            }
-                          `}
-                        />
-                      </div>
-                      {/* Active Line indicator downwards */}
-                      {isActive && (
-                        <div className="absolute left-[14px] top-3.5 w-px h-full bg-gradient-to-b from-[#FF6B35] to-transparent opacity-50" />
-                      )}
-                    </div>
+                    className={`absolute left-0 top-[7px] h-px ${i === events.length - 1 ? 'w-4' : 'right-0'} ${
+                      state === 'past' ? 'bg-[#FF6B35]/70' : 'bg-white/15'
+                    }`}
+                  />
 
-                    {/* Event Content Card */}
-                    <div className={`
-                      border-l-2 pl-4 transition-all duration-500
-                      ${isActive
-                        ? 'border-[#FF6B35]'
-                        : isPast
-                          ? 'border-zinc-800 group-hover:border-zinc-500'
-                          : 'border-zinc-700 group-hover:border-[#18BBF7]/60'
-                      }
-                    `}>
-                      {/* Timing Badge */}
-                      <div className={`
-                        inline-flex items-center px-2 py-1 text-[10px] font-mono mb-2 border tabular-nums transition-all duration-300
-                        ${isActive
-                          ? 'bg-[#FF6B35] text-black border-[#FF6B35] font-bold shadow-[0_0_20px_rgba(255,107,53,0.45)]'
-                          : isPast
-                            ? 'bg-zinc-900 text-zinc-400 border-zinc-800'
-                            : 'bg-black text-zinc-400 border-zinc-700'
-                        }
-                      `}>
-                        {formatRelativeTime(event.relative_time)}
-                      </div>
-
-                      {/* Title */}
-                      <h4 className={`
-                        font-mono text-xs font-bold uppercase tracking-wider mb-1
-                        ${isActive ? 'text-white' : isPast ? 'text-zinc-600' : 'text-zinc-300'}
-                      `}>
-                        {event.type.abbrev}
-                      </h4>
-
-                      {/* Description */}
-                      <p className={`
-                        text-[10px] uppercase leading-tight max-w-[180px]
-                        ${isActive ? 'text-[#FF6B35]' : isPast ? 'text-zinc-600' : 'text-zinc-400'}
-                      `}>
-                        {event.type.description}
-                      </p>
-                    </div>
+                  {/* Node */}
+                  <div className="relative h-3.5 w-3.5">
+                    {state === 'now' && (
+                      <span className="absolute inset-0 rotate-45 animate-ping bg-[#FF6B35] opacity-60 motion-reduce:animate-none" />
+                    )}
+                    <span
+                      className={`absolute inset-0 rotate-45 border transition-colors duration-500 ${
+                        state === 'now'
+                          ? 'border-[#FF6B35] bg-[#FF6B35]'
+                          : state === 'past'
+                            ? 'border-[#FF6B35]/70 bg-[#FF6B35]/70'
+                            : 'border-white/40 bg-black'
+                      }`}
+                    />
                   </div>
-                );
-              })}
-            </div>
-          </div>
+
+                  <div
+                    className={`mt-5 font-mono text-[12px] tabular-nums ${
+                      state === 'now' ? 'text-[#FF6B35]' : state === 'past' ? 'text-zinc-600' : 'text-zinc-400'
+                    }`}
+                  >
+                    {formatTMinus(e.t)}
+                  </div>
+                  <div
+                    className={`mt-1 text-[13px] font-semibold leading-snug ${
+                      state === 'past' ? 'text-zinc-500' : 'text-white'
+                    }`}
+                  >
+                    {e.type.abbrev}
+                  </div>
+                  {e.type.description && (
+                    <p className={`mt-1 line-clamp-2 text-[11px] leading-snug ${state === 'past' ? 'text-zinc-600' : 'text-zinc-500'}`}>
+                      {e.type.description}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
         </div>
+
+        {/* Edge fades hint that there's more to scroll */}
+        {canScrollLeft && <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-linear-to-r from-black to-transparent" />}
+        {canScrollRight && <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-black to-transparent" />}
       </div>
 
-      {/* Progress/Navigator Dots at Bottom */}
-      <div className="px-6 md:px-12 py-3 border-t border-zinc-800/30 bg-black flex gap-px overflow-hidden">
-        {sortedTimeline.map((event, index) => {
-          const isActive = activeEvents.has(index);
-          const eventTime = parseRelativeTime(event.relative_time);
-          const isPast = eventTime !== null && currentMET > eventTime + 30000;
-
+      {/* Progress strip — one segment per event; click to jump */}
+      <div className="mt-6 flex h-1.5 gap-px">
+        {events.map((e, i) => {
+          const state = stateOf(e.t);
           return (
             <button
-              key={index}
-              onClick={() => {
-                const container = scrollContainerRef.current;
-                if (!container) return;
-                const itemWidth = 200 + 32;
-                container.scrollTo({
-                  left: index * itemWidth - container.clientWidth / 2 + 100,
-                  behavior: 'smooth',
-                });
-              }}
-              className={`h-1.5 flex-1 transition-all duration-500 ${isActive
-                ? 'bg-[#FF6B35] shadow-[0_0_8px_rgba(255,107,53,0.7)]'
-                : isPast
-                  ? 'bg-zinc-600 hover:bg-zinc-300'
-                  : 'bg-zinc-900 hover:bg-zinc-600'
-                }`}
-              title={`${event.type.abbrev} - ${formatRelativeTime(event.relative_time)}`}
+              key={i}
+              type="button"
+              onClick={() => scrollToIndex(i)}
+              title={`${formatTMinus(e.t)} · ${e.type.abbrev}`}
+              aria-label={`Jump to ${e.type.abbrev}, ${formatTMinus(e.t)}`}
+              className={`h-full flex-1 transition-colors duration-500 ${
+                state === 'now' ? 'bg-[#FF6B35]' : state === 'past' ? 'bg-[#FF6B35]/60 hover:bg-[#FF6B35]' : 'bg-white/10 hover:bg-white/40'
+              }`}
             />
-          )
+          );
         })}
       </div>
     </div>
