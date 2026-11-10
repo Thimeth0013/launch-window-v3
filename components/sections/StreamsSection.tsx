@@ -40,9 +40,9 @@ export default function StreamsSection({ launchSlug }: { launchSlug: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8 border border-white/5 bg-white/5 animate-pulse mt-12 w-full">
-        <MonitorPlay className="w-5 h-5 text-gray-500 mr-3 animate-bounce" />
-        <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Searching for Broadcasts...</span>
+      <div className="flex items-center gap-3 border-y border-white/10 py-6 animate-pulse motion-reduce:animate-none">
+        <MonitorPlay className="w-4 h-4 text-zinc-500" aria-hidden="true" />
+        <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-[0.12em]">Searching for broadcasts…</span>
       </div>
     );
   }
@@ -50,35 +50,29 @@ export default function StreamsSection({ launchSlug }: { launchSlug: string }) {
   const isEmpty = error || streams.length === 0;
 
   return (
-    <section className="mt-12 space-y-6">
-      <div className="flex items-center gap-4 mb-8">
-        <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-[#FF0000]/80 flex items-center gap-2">
-          <Youtube className="w-4 h-4" /> Live Broadcasts
-        </h3>
-        <div className="h-px flex-1 bg-white/10" />
-      </div>
+    <div>
 
       {isEmpty ? (
-        <div className="flex flex-col items-center justify-center p-10 border border-white/5 bg-white/[0.02] w-full text-center gap-3">
-          <MonitorPlay className="w-6 h-6 text-zinc-700" strokeWidth={1.5} />
+        <div className="flex items-start gap-3 border-y border-white/10 py-6">
+          <Youtube className="mt-0.5 w-4 h-4 shrink-0 text-zinc-500" strokeWidth={1.5} aria-hidden="true" />
           <div className="space-y-1">
-            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
-              {error ? 'Stream Lookup Unavailable' : 'No Broadcasts Scheduled'}
+            <p className="text-[11px] font-mono text-zinc-400 uppercase tracking-[0.12em]">
+              {error ? 'Stream lookup unavailable' : 'No broadcasts scheduled yet'}
             </p>
-            <p className="text-[9px] font-mono text-zinc-700 uppercase tracking-widest">
-              {error ? 'Retry shortly' : 'Channels typically post 24-48h before launch'}
+            <p className="text-xs text-zinc-500">
+              {error ? 'Try again shortly.' : 'Channels usually post streams 24–48 hours before launch.'}
             </p>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-5 gap-y-8">
           {streams.map((stream) => (
           <a
             key={stream.streamId}
             href={stream.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative block overflow-hidden border border-white/10 bg-black hover:border-white/30 transition-colors"
+            className="group relative block overflow-hidden bg-black focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#18BBF7]"
           >
             <div className="aspect-video relative overflow-hidden">
               <img
@@ -97,11 +91,11 @@ export default function StreamsSection({ launchSlug }: { launchSlug: string }) {
                 </div>
               )}
             </div>
-            <div className="p-4 bg-zinc-900 border-t border-white/5">
-              <p className="text-[10px] text-[#FF6B35] font-black uppercase tracking-widest mb-1 truncate">
+            <div className="pt-3 bg-black">
+              <p className="text-[11px] text-zinc-500 font-medium uppercase tracking-[0.12em] mb-1 truncate">
                 {stream.channelName}
               </p>
-              <h4 className="text-sm font-bold text-white uppercase tracking-tight line-clamp-2 leading-tight">
+              <h4 className="text-sm font-semibold text-white line-clamp-2 leading-snug group-hover:text-[#18BBF7] transition-colors">
                 {stream.title}
               </h4>
             </div>
@@ -109,6 +103,6 @@ export default function StreamsSection({ launchSlug }: { launchSlug: string }) {
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 }

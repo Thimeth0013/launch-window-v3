@@ -1,18 +1,11 @@
 // app/launches/[slug]/page.tsx
-import TimelineEngine from '@/components/ui/TimelineEngine';
 import MissionClock from '@/components/ui/MissionClock';
-import CrewSection from '@/components/sections/CrewSection';
-import VehicleDetailsCard from '@/components/sections/VehicleDetailsCard';
-import LaunchLocationCard from '@/components/ui/LaunchLocationCard';
-import DestinationCard from '@/components/ui/DestinationCard';
-import WeatherConditions from '@/components/ui/WeatherConditions';
-import MissionStatistics from '@/components/ui/MissionStatistics';
-import ProgramBadge from '@/components/ui/ProgramBadge';
-import StreamsSection from '@/components/sections/StreamsSection';
+import LaunchStory from '@/components/launch-story/LaunchStory';
 import AppHeader from '@/components/sections/AppHeader';
 import SlugScrollAnimator from '@/components/sections/SlugScrollAnimator';
 import { ensureFreshLaunches, getOrFetchLaunchDetailedBySlug, getUpcomingLaunches } from '@/app/lib/services/launchService';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 
 // 2. Set route revalidation (replaces the fetch revalidate option)
 export const revalidate = 270;
@@ -43,11 +36,8 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
   const { slug } = await params;
   const launch = await getLaunch(slug);
 
-  const crew = launch.rocket?.spacecraft_stage?.[0]?.launch_crew || [];
   const launcher = launch.rocket?.launcher_stage?.[0] || null;
   const updates = launch.updates || [];
-  const patch = launch.mission_patches?.[0]?.image_url;
-  const timeline = launch.timeline || launch.rocket?.configuration?.timeline || [];
 
   // Telemetry Data for the Marquee
   const telemetry = [
@@ -60,6 +50,15 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
 
   return (
     <div className="min-h-screen bg-black text-zinc-300 selection:bg-[#FF6B35] selection:text-black overflow-x-hidden pb-12 md:pb-24">
+      {/* Hydration guard. AppHeader and SlugScrollAnimator are client
+          components sitting directly in this div; if either one's JS chunk is
+          still loading when React hydrates, React suspends *this div* and, on
+          retry, tries to claim it again after its cursor has already moved on
+          to <header> — "Hydration failed … + <div> / - <header>", roughly 1
+          load in 7 in dev. With a boundary here the suspension is caught and
+          retried at the boundary instead. Nothing below suspends on data, so
+          the fallback never renders. */}
+      <Suspense fallback={null}>
 
       <AppHeader />
 
@@ -120,130 +119,14 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
           </div>
         </div>
 
-        {patch && (
-          <div
-            data-hero-patch
-            className="absolute top-24 right-6 md:top-28 md:right-12 w-28 h-28 md:w-32 md:h-32 hidden md:block opacity-20 group-hover/hero:opacity-100 transition-opacity duration-500 ease-out pointer-events-none z-20"
-          >
-            <img
-              src={patch}
-              className="w-full h-full"
-              alt="Mission Patch"
-            />
-          </div>
-        )}
       </div>
 
-      <div className="max-w-8xl mx-auto px-6 md:px-12 py-8 md:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-
-          {/* LEFT CONTENT */}
-          <div className="lg:col-span-7 space-y-8 md:space-y-16">
-
-            {/* MISSION BRIEFING */}
-            <section data-scroll-section>
-              <div className="flex items-center gap-4 mb-6 md:mb-8">
-                <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-[#18BBF7]">Mission Briefing</h3>
-                <div className="h-px flex-1 bg-white/10" />
-              </div>
-              <p className="text-xs md:text-sm lg:text-sm font-light leading-relaxed text-zinc-400 uppercase tracking-tight">
-                {launch.mission?.description || "No mission description provided for this flight trajectory."}
-              </p>
-            </section>
-          </div>
-
-          {/* RIGHT SIDEBAR - TECHNICAL SPECS */}
-          <div className="lg:col-span-5 space-y-10">
-
-            {/* LIVE UPDATES */}
-            <div data-scroll-section className="bg-black border border-zinc-800/60 p-5 md:p-6 font-mono text-[11px] h-56 md:h-64 overflow-y-auto">
-              <div className="text-zinc-500 mb-4 border-b border-zinc-800 pb-2 flex items-center gap-2">
-                <div className="w-0.5 h-2 bg-[#FF6B35] animate-ping" />
-                LIVE MISSION LOG
-                <span className="ml-auto font-mono text-[9px] text-zinc-700 uppercase tracking-widest tabular-nums">
-                  {updates.length.toString().padStart(2, '0')} entries
-                </span>
-              </div>
-              {updates.length === 0 ? (
-                <div className="text-zinc-700 text-[10px] uppercase tracking-widest text-center py-8">
-                  No updates broadcast
-                </div>
-              ) : (
-                updates.map((update: any) => (
-                  <div key={update.id} className="mb-3 leading-relaxed">
-                    <span className="text-zinc-600">
-                      {new Date(update.created_on).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                    <span className="text-[#FF6B35]"> {update.created_by} : </span>{" "}
-                    <span className="text-zinc-400 uppercase">{update.comment}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* TIMELINE */}
-        {timeline && timeline.length > 0 && (
-          <TimelineEngine
-            launchDate={new Date(launch.date)}
-            launchId={launch.slug}
-            timeline={timeline}
-            status={launch.status}
-          />
-        )}
-      </div>
-
-      <div className="max-w-8xl mx-auto px-6 md:px-12 py-8 md:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 mb-8 md:mb-12">
-
-          {/* LEFT CONTENT */}
-          <div className="lg:col-span-6 space-y-8 lg:space-y-12">
-            {launch.rocket && <VehicleDetailsCard rocket={launch.rocket} />}
-            {crew.length > 0 && <CrewSection crew={crew} />}
-            <MissionStatistics launch={launch} />
-            <div data-scroll-section>
-              <ProgramBadge programs={launch.program} />
-            </div>
-          </div>
-
-          {/* RIGHT SIDEBAR - TECHNICAL SPECS */}
-          <div className="lg:col-span-6 space-y-8 lg:space-y-10">
-            <div data-scroll-section>
-              <WeatherConditions
-                probability={launch.probability}
-                weather_concerns={launch.weather_concerns}
-                window_start={launch.window_start}
-                window_end={launch.window_end}
-              />
-            </div>
-
-            {launch.mission && (
-              <div data-scroll-section>
-                <DestinationCard mission={launch.mission} />
-              </div>
-            )}
-
-            {launch.pad && (
-              <div data-scroll-section>
-                <LaunchLocationCard pad={launch.pad} />
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div id="streams-section" data-scroll-section>
-          <StreamsSection launchSlug={launch.slug} />
-        </div>
+      {/* THE STORY — mission → rocket → booster → crew → pad → window → flight plan → destination → recovery → history → watch → log */}
+      <div className="max-w-8xl mx-auto px-6 md:px-12 py-16 md:py-24">
+        <LaunchStory launch={launch} />
 
         <a
-          href="#streams-section"
+          href="#chapter-watch"
           className="fixed bottom-8 right-6 z-50 inline-flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/80 hover:bg-[#FF0000]/40 border border-white/10"
           title="Go to Streams"
         >
@@ -253,6 +136,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
       </div>
 
       <SlugScrollAnimator />
+      </Suspense>
     </div>
   );
 }

@@ -16,6 +16,9 @@ export default function SlugScrollAnimator() {
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
 
+    // Global ScrollTrigger listeners and observers aren't reverted by ctx.revert().
+    let removeStoryListeners: (() => void) | null = null;
+
     const ctx = gsap.context(() => {
       // ----- HERO on-mount timeline ---------------------------------
       // The hero is already in the viewport on first paint, so we drive a
@@ -27,7 +30,6 @@ export default function SlugScrollAnimator() {
       const heroBar = document.querySelector<HTMLElement>('[data-hero-bar]');
       const heroClock = document.querySelector<HTMLElement>('[data-hero-clock]');
       const heroMarquee = document.querySelector<HTMLElement>('[data-hero-marquee]');
-      const heroPatch = document.querySelector<HTMLElement>('[data-hero-patch]');
 
       if (heroBg || heroTitle || heroBar || heroClock || heroMarquee) {
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
@@ -64,13 +66,6 @@ export default function SlugScrollAnimator() {
         if (heroMarquee) {
           gsap.set(heroMarquee, { opacity: 0, x: 30 });
           tl.to(heroMarquee, { opacity: 1, x: 0, duration: 0.7 }, 1.0);
-        }
-
-        if (heroPatch) {
-          // patch is opacity-controlled by hover; bring its container
-          // in alongside so it's ready when the user mouses over.
-          gsap.set(heroPatch, { y: -12 });
-          tl.to(heroPatch, { y: 0, duration: 0.6, ease: 'power2.out' }, 0.6);
         }
       }
 
@@ -116,9 +111,84 @@ export default function SlugScrollAnimator() {
           },
         });
       });
+
+      // ----- Launch story -------------------------------------------
+      // The spine fills as the reader moves through the chapters, each
+      // chapter's marker lights the moment the fill reaches it, and data bars
+      // grow in from zero. Reduced-motion users get the finished state.
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const story = document.querySelector<HTMLElement>('[data-story]');
+      const spineFill = document.querySelector<HTMLElement>('[data-story-progress]');
+
+      if (story && spineFill && !reduceMotion) {
+        // Marker positions come from offsetTop (which ignores the sections'
+        // 40px fade-up offset) and are compared against the fill's own
+        // scrub-smoothed progress, so the light and the line always agree.
+        const track = spineFill.parentElement!;
+        const nodes = gsap.utils.toArray<HTMLElement>('[data-story-node]');
+        let nodeYs: number[] = [];
+        const measure = () => {
+          nodeYs = nodes.map((node) => {
+            const section = node.offsetParent as HTMLElement;
+            return section.offsetTop + node.offsetTop + node.offsetHeight / 2 - track.offsetTop;
+          });
+        };
+        const light = (progress: number) => {
+          const edge = progress * track.offsetHeight;
+          nodes.forEach((node, i) => {
+            const on = String(edge >= nodeYs[i]);
+            if (node.dataset.on !== on) node.dataset.on = on;
+          });
+        };
+
+        measure();
+        light(0);
+        ScrollTrigger.addEventListener('refreshInit', measure);
+
+        // Late content (broadcast cards, fonts) pushes chapters down:
+        // re-measure and re-map the fill whenever the story resizes.
+        let frame = 0;
+        const observer = new ResizeObserver(() => {
+          cancelAnimationFrame(frame);
+          frame = requestAnimationFrame(() => ScrollTrigger.refresh());
+        });
+        observer.observe(story);
+        removeStoryListeners = () => {
+          ScrollTrigger.removeEventListener('refreshInit', measure);
+          observer.disconnect();
+          cancelAnimationFrame(frame);
+        };
+
+        gsap.fromTo(
+          spineFill,
+          { scaleY: 0 },
+          {
+            scaleY: 1,
+            ease: 'none',
+            scrollTrigger: { trigger: story, start: 'top 60%', end: 'bottom 60%', scrub: 0.4 },
+            onUpdate() {
+              light(this.progress());
+            },
+          }
+        );
+      }
+
+      if (!reduceMotion) {
+        gsap.utils.toArray<HTMLElement>('[data-bar]').forEach((bar) => {
+          gsap.from(bar, {
+            scaleX: 0,
+            duration: 1,
+            ease: 'power3.out',
+            scrollTrigger: { trigger: bar, start: 'top 90%', once: true },
+          });
+        });
+      }
     });
 
-    return () => ctx.revert();
+    return () => {
+      removeStoryListeners?.();
+      ctx.revert();
+    };
   }, []);
 
   return null;
