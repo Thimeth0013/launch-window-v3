@@ -398,9 +398,12 @@ export function buildCarouselSlides(
 ): CarouselSlide[] {
   const slides: CarouselSlide[] = [];
 
-  // Slide 1 — APOD
+  // Slide 1 — APOD. Only when NASA actually returned something to show: with
+  // no key, a failed fetch or a video without a thumbnail there is no image,
+  // and the slide would be an empty black panel — so it's left out and the
+  // carousel runs with the remaining slides.
   const apodImage = apod?.media_type === 'image' ? apod.url : apod?.thumbnail_url;
-  slides.push({
+  if (apodImage && apod?.title) slides.push({
     id: 'apod',
     index: '[01]',
     label: 'Cosmic Observation',
@@ -408,7 +411,7 @@ export function buildCarouselSlides(
     imageSrc: apodImage,
     imageAlt: apod?.title || 'NASA APOD',
     metaLine: `NASA / Astronomy Picture Of The Day / ${apod?.date || '—'}`,
-    title: apod?.title || 'Cosmic feed unavailable',
+    title: apod.title,
     description: apod?.explanation || undefined,
     ctaLabel: apod?.media_type === 'video' ? 'Watch Source' : 'View HD',
     ctaHref: apod?.hdurl || apod?.url || '#',
@@ -454,5 +457,6 @@ export function buildCarouselSlides(
     icon: <Newspaper className="w-10 h-10" />,
   });
 
-  return slides;
+  // Number slides by position so "[01]…" stays sequential when one is skipped.
+  return slides.map((slide, i) => ({ ...slide, index: `[${String(i + 1).padStart(2, '0')}]` }));
 }
