@@ -1,7 +1,7 @@
 import AppHeader from '@/components/sections/AppHeader';
 import ArticlesFeed from '@/components/sections/ArticlesFeed';
 import Particles from '@/components/Particles';
-import { ensureFreshArticles, getLatestArticles } from '@/app/lib/services/articleService';
+import { attachLinkedLaunches, ensureFreshArticles, getLatestArticles } from '@/app/lib/services/articleService';
 
 // force-dynamic so this reflects whatever ensureFreshArticles() currently has
 // in Mongo on every request — that function already gates real SNAPI re-fetches
@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic';
 async function getArticles() {
   try {
     await ensureFreshArticles();
-    return await getLatestArticles(25);
+    // linkedLaunches: launches we have a page for, so rows can link to them.
+    return await attachLinkedLaunches(await getLatestArticles(25));
   } catch (error) {
     console.error('Failed to fetch articles:', error);
     return [];

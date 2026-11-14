@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import { Newspaper, ExternalLink, Rocket, Star, Calendar, Search, X } from 'lucide-react';
@@ -17,6 +18,8 @@ interface Article {
   featured?: boolean;
   authors?: Array<{ name?: string }>;
   launches?: Array<{ launch_id?: string; provider?: string }>;
+  /** Launches from `launches` that we have a page for (added server-side). */
+  linkedLaunches?: Array<{ slug: string; name: string }>;
 }
 
 const PAGE_SIZE = 25;
@@ -71,7 +74,7 @@ function ArticleRow({ article, index }: { article: Article; index: number }) {
           })}
         </span>
         {isFeatured && <Star className="shrink-0 w-3 h-3 text-[#FF6B35] fill-[#FF6B35]" />}
-        {hasLaunches && <Rocket className="shrink-0 w-3 h-3 text-[#18BBF7]" />}
+        {hasLaunches && !(article.linkedLaunches?.length) && <Rocket className="shrink-0 w-3 h-3 text-[#18BBF7]" />}
         <span className="shrink-0 text-zinc-700">/</span>
         <span className="min-w-0 truncate">
           {authors.length > 0 ? (
@@ -93,7 +96,7 @@ function ArticleRow({ article, index }: { article: Article; index: number }) {
 
   const rowClassName = 'group flex items-start gap-4 sm:gap-5 py-1.5';
 
-  return article.url ? (
+  const row = article.url ? (
     <a href={article.url} target="_blank" rel="noopener noreferrer" className={rowClassName}>
       {thumbnail}
       {content}
@@ -104,6 +107,30 @@ function ArticleRow({ article, index }: { article: Article; index: number }) {
       {thumbnail}
       {content}
     </div>
+  );
+
+  // Launches this article covers that have a page here. Outside the row's
+  // <a> (links can't nest), indented to line up with the text column.
+  const linked = article.linkedLaunches ?? [];
+  if (linked.length === 0) return row;
+
+  return (
+    <>
+      {row}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-1.5 pl-36 font-mono text-[10px] uppercase tracking-widest sm:pl-45 md:pl-79">
+        {linked.map((l) => (
+          <Link
+            key={l.slug}
+            href={`/launches/${l.slug}`}
+            className="inline-flex min-w-0 items-center gap-1.5 text-[#18BBF7] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18BBF7]"
+          >
+            <Rocket className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">{l.name}</span>
+            <span aria-hidden="true">→</span>
+          </Link>
+        ))}
+      </div>
+    </>
   );
 }
 

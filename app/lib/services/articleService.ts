@@ -2,6 +2,7 @@ import axios from 'axios';
 import connectDB from '../db/mongodb';
 import Article from '../db/models/Article';
 import ArticleSync from '../db/models/ArticleSync';
+import Launch from '../db/models/Launch';
 
 const SNAPI_BASE = 'https://api.spaceflightnewsapi.net/v4';
 const ARTICLE_SYNC_TTL_MS = 60 * 60 * 1000;
@@ -146,4 +147,43 @@ export const getLatestArticles = async (limit = 25) => {
 export const getArticleById = async (id: number) => {
   await connectDB();
   return Article.findOne({ id }).select('-_id').lean();
+};
+
+// ---------------------------------------------------------------------------
+// Articles ↔ launches. SNAPI tags articles with the Space Devs launch UUID
+// (`launches[].launch_id`), which is our `Launch.id` — never the slug.
+
+export type LinkedLaunch = { slug: string; name: string };
+
+/** Latest synced articles that mention this launch (by Space Devs launch id). */
+export const getArticlesForLaunch = async (launchId: string, limit = 5) => {
+  if (!launchId) return [];
+  await connectDB();
+  return Article.find({ 'launches.launch_id': launchId })
+    .sort({ published_at: -1 })
+    .limit(limit)
+    .select('-_id id title url news_site published_at')
+    .lean();
+};
+
+/**
+ * Adds `linkedLaunches` (slug + name) to each article for the launches we have
+ * a page for. Launch ids we don't track are dropped rather than linked to a 404.
+ */
+export const attachLinkedLaunches = async <T extends { launches?: Array<{ launch_id?: string }> }>(
+  articles: T[]
+): Promise<Array<T & { linkedLaunches: LinkedLaunch[] }>> => {
+  const ids = [...new Set(articles.flatMap((a) => (a.launches ?? []).map((l) => l.launch_id).filter(Boolean) as string[]))];
+  if (!ids.length) return articles.map((a) => ({ ...a, linkedLaunches: [] }));
+
+  await connectDB();
+  const docs = await Launch.find({ id: { $in: ids } }).select('id slug name -_id').lean<Array<{ id: string; slug: string; name: string }>>();
+  const byId = new Map(docs.map((d) => [d.id, { slug: d.slug, name: d.name }]));
+
+  return articles.map((a) => ({
+    ...a,
+    linkedLaunches: (a.launches ?? [])
+      .map((l) => (l.launch_id ? byId.get(l.launch_id) : undefined))
+      .filter((l): l is LinkedLaunch => Boolean(l?.slug)),
+  }));
 };

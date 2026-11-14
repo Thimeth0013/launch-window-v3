@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '../../lib/db/mongodb';
 import Article from '../../lib/db/models/Article';
-import { ensureFreshArticles } from '../../lib/services/articleService';
+import { attachLinkedLaunches, ensureFreshArticles } from '../../lib/services/articleService';
 
 export const revalidate = 3600;
 
@@ -17,12 +17,9 @@ export async function GET(request: NextRequest) {
     const query: any = {};
     if (featuredOnly) query.featured = true;
 
-    const articles = await Article.find(query)
-      .sort({ published_at: -1 })
-      .skip(offset)
-      .limit(limit)
-      .select('-_id')
-      .lean();
+    const articles = await attachLinkedLaunches(
+      await Article.find(query).sort({ published_at: -1 }).skip(offset).limit(limit).select('-_id').lean()
+    );
 
     return NextResponse.json(articles, {
       headers: {
