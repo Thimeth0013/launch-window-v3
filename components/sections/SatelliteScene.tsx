@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useServerTime } from '../../app/lib/hooks/useServerTime';
+import type { Trajectory, TrajPoint } from '../../app/lib/launch/trajectory';
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
@@ -156,13 +157,160 @@ function buildOrbitLine(samples: Sample[], colour: number): THREE.Line | null {
   return new THREE.Line(geo, mat);
 }
 
+/* ─── Trajectory helpers ─────────────────────────────────────────────────── */
+
+const ORANGE = 0xff6b35;
+
+/** Geodetic (spherical Earth) → scene coordinates, same axis mapping as the satellites. */
+function trajToScene(p: { lat: number; lon: number; altKm: number }, out = new THREE.Vector3()): THREE.Vector3 {
+  // Lift ground-level points a few km so lines don't z-fight with the globe.
+  const r = (EARTH_RADIUS_KM + Math.max(p.altKm, 8)) * SCENE_SCALE;
+  const la = (p.lat * Math.PI) / 180;
+  const lo = (p.lon * Math.PI) / 180;
+  const x = r * Math.cos(la) * Math.cos(lo);
+  const y = r * Math.cos(la) * Math.sin(lo);
+  const z = r * Math.sin(la);
+  return out.set(x, z, -y);
+}
+
+function buildTrajLine(points: TrajPoint[], colour: number, dashed: boolean, opacity = 0.95): THREE.Line | null {
+  if (points.length < 2) return null;
+  const geo = new THREE.BufferGeometry().setFromPoints(points.map((pt) => trajToScene(pt)));
+  const mat = dashed
+    ? new THREE.LineDashedMaterial({ color: colour, dashSize: 0.35, gapSize: 0.25, transparent: true, opacity })
+    : new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity });
+  const line = new THREE.Line(geo, mat);
+  if (dashed) line.computeLineDistances();
+  return line;
+}
+
+/**
+ * Screen-sized icon (constant pixel size). Depth testing would clip a flat
+ * sprite against the globe near the horizon, so it's off; the animation loop
+ * hides icons on the far side with a horizon test instead. `scale` is roughly
+ * a fraction of the viewport height.
+ */
+function buildIcon(draw: (ctx: CanvasRenderingContext2D, size: number) => void, scale: number): THREE.Sprite {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  draw(canvas.getContext('2d')!, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, sizeAttenuation: false, transparent: true, depthTest: false }));
+  sprite.scale.setScalar(scale);
+  return sprite;
+}
+
+/** Ring marker (pad, landing sites). */
+function drawRing(colour: string) {
+  return (ctx: CanvasRenderingContext2D, size: number) => {
+    const c = size / 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.beginPath(); ctx.arc(c, c, size * 0.36, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = size * 0.12;
+    ctx.beginPath(); ctx.arc(c, c, size * 0.32, 0, Math.PI * 2); ctx.stroke();
+  };
+}
+
+/** Rocket in a ring — the vehicle's modelled position. */
+function drawRocket(ctx: CanvasRenderingContext2D, size: number) {
+  const c = size / 2;
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.beginPath(); ctx.arc(c, c, size * 0.46, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#FF6B35';
+  ctx.lineWidth = size * 0.06;
+  ctx.beginPath(); ctx.arc(c, c, size * 0.43, 0, Math.PI * 2); ctx.stroke();
+  // Rocket, nose to the upper right.
+  ctx.save();
+  ctx.translate(c, c);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = '#FFFFFF';
+  const w = size * 0.11;
+  const h = size * 0.42;
+  ctx.beginPath();
+  ctx.moveTo(0, -h / 2 - w * 1.1); // nose
+  ctx.lineTo(w / 2, -h / 2);
+  ctx.lineTo(w / 2, h / 2);
+  ctx.lineTo(w * 1.1, h / 2 + w * 0.9); // fin
+  ctx.lineTo(-w * 1.1, h / 2 + w * 0.9);
+  ctx.lineTo(-w / 2, h / 2);
+  ctx.lineTo(-w / 2, -h / 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#FF6B35'; // exhaust
+  ctx.beginPath();
+  ctx.moveTo(-w / 3, h / 2 + w * 0.9);
+  ctx.lineTo(w / 3, h / 2 + w * 0.9);
+  ctx.lineTo(0, h / 2 + w * 2.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Index of the last path point at or before `tSec` (-1 before the first). */
+function indexAt(points: TrajPoint[], tSec: number): number {
+  if (!points.length || tSec < points[0].t) return -1;
+  let lo = 0;
+  let hi = points.length - 1;
+  if (tSec >= points[hi].t) return hi;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].t <= tSec) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** Position along ascent + orbit at `tSec` after T-0 (clamped to the modelled span). */
+function trajectoryAt(points: TrajPoint[], tSec: number): TrajPoint | null {
+  if (!points.length) return null;
+  if (tSec <= points[0].t) return points[0];
+  const last = points[points.length - 1];
+  if (tSec >= last.t) return last;
+  let lo = 0;
+  let hi = points.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].t <= tSec) lo = mid;
+    else hi = mid;
+  }
+  const a = points[lo];
+  const b = points[hi];
+  const u = (tSec - a.t) / (b.t - a.t);
+  // Longitude wrap-safe interpolation via scene vectors is done by the caller;
+  // here a/b are 10–30 s apart so linear lat/lon is fine except across ±180°.
+  let dLon = b.lon - a.lon;
+  if (dLon > 180) dLon -= 360;
+  if (dLon < -180) dLon += 360;
+  return { t: tSec, lat: a.lat + (b.lat - a.lat) * u, lon: a.lon + dLon * u, altKm: a.altKm + (b.altKm - a.altKm) * u };
+}
+
+function formatMet(sec: number): string {
+  const sign = sec < 0 ? 'T-' : 'T+';
+  const abs = Math.abs(Math.floor(sec));
+  const h = Math.floor(abs / 3600);
+  const m = Math.floor((abs % 3600) / 60);
+  const s = abs % 60;
+  return `${sign}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
-export default function SatelliteScene({ initialPositions }: { initialPositions: SatellitePosition[] }) {
+export default function SatelliteScene({
+  initialPositions,
+  trajectory = null,
+}: {
+  initialPositions: SatellitePosition[];
+  /** When set, the launch's modelled trajectory is drawn over the globe. */
+  trajectory?: Trajectory | null;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const readoutRef = useRef<HTMLPreElement>(null);
   const positionsRef = useRef<SatellitePosition[]>(initialPositions);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const metRef = useRef<HTMLSpanElement>(null);
 
   const [errorCode, setErrorCode] = useState<string | null>(() => deriveErrorCode(initialPositions));
   const [hoveredSat, setHoveredSat] = useState<{ name: string; x: number; y: number } | null>(null);
@@ -214,9 +362,16 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
       5000,
     );
     // Start in extreme close-up on Earth surface so it fills the screen, ease back to overview
-    const CAM_START_Z = EARTH_R * 1.35; // extreme close-up
-    const CAM_END_Z = 100;             // normal overview distance (2x of 50)
-    camera.position.set(0, 0, CAM_START_Z);
+    // Default: ease from a surface close-up back to an overview. Trajectory
+    // mode: same ease, but aimed at the launch pad and ending closer.
+    const camDir = trajectory
+      ? trajToScene({ lat: trajectory.pad.lat, lon: trajectory.pad.lon, altKm: 0 }).normalize().add(new THREE.Vector3(0, 0.15, 0)).normalize()
+      : new THREE.Vector3(0, 0, 1);
+    const CAM_START = camDir.clone().multiplyScalar(EARTH_R * 1.35);
+    const CAM_END = trajectory
+      ? camDir.clone().multiplyScalar(60)
+      : new THREE.Vector3(0, 50, 100); // normal overview
+    camera.position.copy(CAM_START);
     camera.lookAt(0, 0, 0);
 
     /* Lights */
@@ -251,15 +406,25 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
     const earth = new THREE.Mesh(earthGeo, earthMat);
     earth.receiveShadow = true;
     earth.castShadow = false;
-    scene.add(earth);
+
+    // Everything given in Earth-fixed coordinates (satellite ECEF samples,
+    // orbit lines, the launch trajectory) lives in this frame, which rotates
+    // with the globe. Rotating only the Earth mesh would slide the texture
+    // out from under them (~15° per hour).
+    const earthFrame = new THREE.Group();
+    earthFrame.add(earth);
+    scene.add(earthFrame);
 
     // Atmosphere
     scene.add(buildAtmosphere(EARTH_R));
 
     // Async texture upgrades
-    loader.loadAsync(EARTH_DAY_TEX).then((tex) => {
+    // Trajectory mode uses NASA's night-lights texture: a dark globe makes the
+    // ground track and the city lights along it the focus.
+    loader.loadAsync(trajectory ? EARTH_NIGHT_TEX : EARTH_DAY_TEX).then((tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       earthMat.map = tex;
+      if (trajectory) earthMat.color.set(0xffffff);
       earthMat.needsUpdate = true;
     }).catch(() => {/* keep placeholder */ });
 
@@ -288,10 +453,13 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
       positionsRef.current.forEach((sat, i) => {
         const colour = SAT_COLOURS[i % SAT_COLOURS.length];
         const group = buildSatMesh(colour);
-        scene.add(group);
+        // In trajectory mode the camera is close in; shrink the satellites
+        // (each cube is ~500 km across at full size) so the launch stays the subject.
+        if (trajectory) group.scale.setScalar(0.35);
+        earthFrame.add(group);
 
         const orbit = buildOrbitLine(sat.samples, colour);
-        if (orbit) scene.add(orbit);
+        if (orbit) earthFrame.add(orbit);
 
         satViz.set(sat.id, {
           group,
@@ -303,6 +471,59 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
     };
     setupSatellites();
 
+    /* Launch trajectory (modelled) — drawn as a ground track:
+       flown (T-0 → now) solid orange, predicted (now → +2 h) dashed grey.
+       The split point moves every frame. */
+    const trajObjects: THREE.Object3D[] = [];
+    const flightPath: TrajPoint[] = trajectory ? [...trajectory.ascent, ...trajectory.orbit, ...(trajectory.cruise ?? [])] : [];
+    const groundPts = flightPath.map((pt) => trajToScene({ ...pt, altKm: 0 }));
+    let flownGeo: THREE.BufferGeometry | null = null;
+    let futureGeo: THREE.BufferGeometry | null = null;
+    let headSlot = -1; // vertex of flownGeo currently holding the live head position
+    let rocket: THREE.Sprite | null = null;
+    const icons: THREE.Sprite[] = [];
+    if (trajectory && groundPts.length > 1) {
+      const add = (o: THREE.Object3D | null) => {
+        if (!o) return;
+        earthFrame.add(o);
+        trajObjects.push(o);
+      };
+
+      // Flown: the path points plus one spare vertex for the live head.
+      const flownPos = new Float32Array((groundPts.length + 1) * 3);
+      groundPts.forEach((v, i) => flownPos.set([v.x, v.y, v.z], i * 3));
+      flownGeo = new THREE.BufferGeometry();
+      flownGeo.setAttribute('position', new THREE.BufferAttribute(flownPos, 3));
+      flownGeo.setDrawRange(0, 0);
+      add(new THREE.Line(flownGeo, new THREE.LineBasicMaterial({ color: ORANGE, transparent: true, opacity: 0.95 })));
+
+      futureGeo = new THREE.BufferGeometry().setFromPoints(groundPts);
+      const future = new THREE.Line(
+        futureGeo,
+        new THREE.LineDashedMaterial({ color: 0x9aa4b2, dashSize: 0.3, gapSize: 0.22, transparent: true, opacity: 0.6 })
+      );
+      future.computeLineDistances();
+      add(future);
+
+      for (const b of trajectory.boosters) {
+        add(buildTrajLine(b.points.map((pt) => ({ ...pt, altKm: 0 })), 0xffffff, false, 0.8));
+        const ring = buildIcon(drawRing('#FFFFFF'), 0.022);
+        ring.position.copy(trajToScene({ lat: b.landing.lat, lon: b.landing.lon, altKm: 30 }));
+        add(ring);
+        icons.push(ring);
+      }
+
+      const pad = buildIcon(drawRing('#FFFFFF'), 0.03);
+      pad.position.copy(trajToScene({ lat: trajectory.pad.lat, lon: trajectory.pad.lon, altKm: 30 }));
+      add(pad);
+      icons.push(pad);
+
+      rocket = buildIcon(drawRocket, 0.075);
+      rocket.renderOrder = 2;
+      add(rocket);
+      icons.push(rocket);
+    }
+
     /* Orbit controls */
     let controls: { update: () => void; dispose: () => void } | null = null;
     let controlsCancelled = false;
@@ -313,7 +534,7 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
       c.dampingFactor = 0.06;
       c.minDistance = 30;
       c.maxDistance = 1600;
-      c.autoRotate = true;
+      c.autoRotate = !trajectory; // keep the launch in view
       c.autoRotateSpeed = 0.25;
       controls = c;
     });
@@ -394,18 +615,55 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
         const t = Math.min(elapsed / ZOOM_DURATION, 1);
         // Smooth ease-out cubic
         const eased = 1 - Math.pow(1 - t, 3);
-        camera.position.z = CAM_START_Z + (CAM_END_Z - CAM_START_Z) * eased;
-        camera.position.y = 50 * eased;
+        camera.position.lerpVectors(CAM_START, CAM_END, eased);
         camera.lookAt(0, 0, 0);
       }
 
       // Slow Earth self-rotation
       // Earth's real sidereal rotation: one full turn in 86 164 s (≈ 23 h 56 m)
       // ω = 2π / 86164 ≈ 7.292e-5 rad/s
-      earth.rotation.y = elapsed * (2 * Math.PI / 86164);
+      earthFrame.rotation.y = elapsed * (2 * Math.PI / 86164);
 
       const nowMs = getServerTimeRef.current().getTime();
       const lines: string[] = [];
+
+      if (trajectory && rocket && flownGeo && futureGeo) {
+        const met = (nowMs - new Date(trajectory.t0).getTime()) / 1000;
+        const here = trajectoryAt(flightPath, met);
+        const k = indexAt(flightPath, met);
+        const flownAttr = flownGeo.getAttribute('position') as THREE.BufferAttribute;
+
+        // Put back the path point the head vertex borrowed last frame.
+        if (headSlot >= 0 && headSlot < groundPts.length) {
+          const v = groundPts[headSlot];
+          flownAttr.setXYZ(headSlot, v.x, v.y, v.z);
+        }
+        if (k >= 0 && here) {
+          const head = trajToScene({ ...here, altKm: 0 });
+          headSlot = k + 1;
+          flownAttr.setXYZ(headSlot, head.x, head.y, head.z);
+          flownGeo.setDrawRange(0, k + 2);
+        } else {
+          headSlot = -1;
+          flownGeo.setDrawRange(0, 0);
+        }
+        flownAttr.needsUpdate = true;
+        const start = Math.max(k, 0);
+        futureGeo.setDrawRange(start, groundPts.length - start);
+
+        if (here) trajToScene({ ...here, altKm: 40 }, rocket.position);
+
+        // Horizon test: a point is visible when it's on the camera's side of
+        // the tangent cone (cos θ > R / |camera|).
+        const camDist = camera.position.length();
+        const horizon = EARTH_R / camDist;
+        for (const icon of icons) {
+          icon.getWorldPosition(tmp);
+          icon.visible = tmp.normalize().dot(camera.position) / camDist > horizon;
+        }
+        if (metRef.current) metRef.current.textContent = formatMet(met);
+        if (here) lines.push(`${trajectory.name.slice(0, 40).padEnd(40)} ${formatMet(met)}  ALT≈${Math.round(here.altKm)} km (model)`);
+      }
 
       for (const sat of positionsRef.current) {
         const viz = satViz.get(sat.id);
@@ -456,6 +714,14 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
         }
       });
 
+      trajObjects.forEach((o) => {
+        const m = o as THREE.Mesh;
+        m.geometry?.dispose();
+        const mat = m.material as (THREE.Material & { map?: THREE.Texture | null }) | undefined;
+        mat?.map?.dispose();
+        mat?.dispose();
+      });
+
       earthGeo.dispose();
       earthMat.dispose();
       renderer.dispose();
@@ -463,6 +729,8 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
         container.removeChild(renderer.domElement);
       }
     };
+    // trajectory is fixed for the page's lifetime (it comes from the URL)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ── JSX ──────────────────────────────────────────────────────────── */
@@ -479,9 +747,38 @@ export default function SatelliteScene({ initialPositions }: { initialPositions:
       <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-white/30 pointer-events-none" />
 
       {/* Scene label — moved to bottom to avoid overlapping the site header */}
-      <div className="pointer-events-none absolute top-20 left-6 text-xs font-mono text-white/50 tracking-[0.2em]">
-        LIVE SATELLITE POSITIONS · GEO ECEF
-      </div>
+      {!trajectory && (
+        <div className="pointer-events-none absolute top-20 left-6 text-xs font-mono text-white/50 tracking-[0.2em]">
+          LIVE SATELLITE POSITIONS · GEO ECEF
+        </div>
+      )}
+
+      {/* Launch trajectory panel */}
+      {trajectory && (
+        <div className="absolute top-20 left-6 z-10 w-[min(22rem,calc(100vw-3rem))] border-l-2 border-[#FF6B35] bg-black/70 px-4 py-3 backdrop-blur-sm">
+          <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#FF6B35]">Launch trajectory · approximate</div>
+          <div className="mt-1 text-sm font-semibold leading-snug text-white">{trajectory.name}</div>
+          <div className="mt-2 font-mono text-xl font-semibold tabular-nums text-white">
+            <span ref={metRef}>T+00:00:00</span>
+          </div>
+          <ul className="mt-3 space-y-1 font-mono text-[11px] text-zinc-300">
+            <li className="flex items-center gap-2"><span className="inline-block h-0.5 w-5 bg-[#FF6B35]" /> Flown ground track</li>
+            <li className="flex items-center gap-2"><span className="inline-block h-0 w-5 border-t border-dashed border-zinc-400" /> Predicted, next ~2 h</li>
+            {trajectory.boosters.map((b) => (
+              <li key={b.who} className="flex items-center gap-2"><span className="inline-block h-0.5 w-5 bg-white" /> {b.who} → {b.landing.label}</li>
+            ))}
+            <li className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-[#FF6B35] bg-black" /> Modelled position now</li>
+            <li className="flex items-center gap-2"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-white bg-black" /> {trajectory.pad.name}</li>
+          </ul>
+          <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">
+            Modelled from the pad and target orbit ({trajectory.model.basis}; {trajectory.model.inclinationDeg}° inclination,
+            ~{trajectory.model.altitudeKm} km), not live telemetry.
+          </p>
+          <a href={`/launches/${trajectory.slug}`} className="mt-3 inline-block font-mono text-[11px] uppercase tracking-[0.15em] text-[#18BBF7] hover:text-white">
+            ← Back to mission
+          </a>
+        </div>
+      )}
 
       {/* Source label — bottom-right stack */}
       <div className="pointer-events-none absolute top-20 right-6 text-[10px] font-mono text-white/35 tracking-[0.15em] text-right">

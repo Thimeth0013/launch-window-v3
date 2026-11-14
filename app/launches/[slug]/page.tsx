@@ -4,6 +4,9 @@ import LaunchStory from '@/components/launch-story/LaunchStory';
 import AppHeader from '@/components/sections/AppHeader';
 import SlugScrollAnimator from '@/components/sections/SlugScrollAnimator';
 import { ensureFreshLaunches, getOrFetchLaunchDetailedBySlug, getUpcomingLaunches } from '@/app/lib/services/launchService';
+import { getArticlesForLaunch } from '@/app/lib/services/articleService';
+import { isLaunchLive } from '@/app/lib/launch/trajectory';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
@@ -35,6 +38,10 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
   // 5. Await the params before extracting the slug
   const { slug } = await params;
   const launch = await getLaunch(slug);
+  // Related news is keyed by the Space Devs launch id (not the slug). A failure
+  // here only costs the "In the News" chapter, never the page.
+  const news = JSON.parse(JSON.stringify(await getArticlesForLaunch(launch.id).catch(() => [])));
+  const liveNow = Boolean(launch.webcast_live || launch.vid_urls?.some((v: { live?: boolean }) => v.live));
 
   const launcher = launch.rocket?.launcher_stage?.[0] || null;
   const updates = launch.updates || [];
@@ -94,7 +101,20 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
               launchDate={new Date(launch.date)}
               status={launch.status}
               updates={updates}
+              netPrecision={launch.net_precision}
             />
+            {isLaunchLive(launch) && (
+              <Link
+                href={`/tracker?launch=${launch.slug}`}
+                className="mt-6 inline-flex items-center gap-2 border border-[#FF6B35] bg-[#FF6B35]/10 px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#FF6B35] backdrop-blur-sm transition-colors hover:bg-[#FF6B35] hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18BBF7]"
+              >
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-75 motion-reduce:animate-none" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
+                </span>
+                Follow the trajectory on the globe
+              </Link>
+            )}
           </div>
 
           {/* TELEMETRY MARQUEE */}
@@ -123,14 +143,28 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
 
       {/* THE STORY — mission → rocket → booster → crew → pad → window → flight plan → destination → recovery → history → watch → log */}
       <div className="max-w-8xl mx-auto px-6 md:px-12 py-16 md:py-24">
-        <LaunchStory launch={launch} />
+        <LaunchStory launch={launch} news={news} />
 
         <a
           href="#chapter-watch"
-          className="fixed bottom-8 right-6 z-50 inline-flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/80 hover:bg-[#FF0000]/40 border border-white/10"
-          title="Go to Streams"
+          className={`fixed bottom-8 right-6 z-50 inline-flex items-center gap-2 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider border ${
+            liveNow
+              ? 'bg-[#FF6B35] text-black border-[#FF6B35] hover:bg-[#FF6B35]/90'
+              : 'bg-black/20 text-white/80 border-white/10 hover:bg-[#FF6B35]/40'
+          }`}
+          title="Go to broadcasts"
         >
-          ↓ Live Broadcasts
+          {liveNow ? (
+            <>
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-black opacity-60 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-black" />
+              </span>
+              Live now
+            </>
+          ) : (
+            '↓ Live Broadcasts'
+          )}
         </a>
 
       </div>
