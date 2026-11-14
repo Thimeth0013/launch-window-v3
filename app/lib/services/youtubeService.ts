@@ -230,7 +230,7 @@ export const checkChannelUpcomingStreams = async (channelId: string, launchName:
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
     console.warn(`⚠️  [YT] YOUTUBE_API_KEY not set — stream search skipped`);
-    return [];
+    return { streams: [], failed: true }; // couldn't check ≠ nothing there
   }
 
   const channelName = CHANNEL_CONFIGS[channelId]?.name || channelId;
@@ -241,6 +241,9 @@ export const checkChannelUpcomingStreams = async (channelId: string, launchName:
   console.log(`  🔎 [YT] Channel: ${channelName} | Query: "${searchQuery}"`);
 
   const allItems: any[] = [];
+  // A failed search (403 quota, 429 rate limit, network) is NOT "no streams":
+  // callers use this to avoid overwriting good cached results with nothing.
+  let failed = false;
 
   // --- 1. Fetch UPCOMING streams (all scheduled future broadcasts) ---
   try {
@@ -257,7 +260,8 @@ export const checkChannelUpcomingStreams = async (channelId: string, launchName:
     allItems.push(...items);
   } catch (error: any) {
     const status = error.response?.status;
-    console.error(`  ❌ [YT] ${channelName} [upcoming] → ${status === 403 ? '403 Forbidden — quota exceeded or bad API key' : error.message}`);
+    failed = true;
+    console.error(`  ❌ [YT] ${channelName} [upcoming] → ${status === 403 ? '403 Forbidden — quota exceeded or bad API key' : status === 429 ? '429 rate limited' : error.message}`);
   }
 
   await new Promise(r => setTimeout(r, 150));
@@ -278,7 +282,8 @@ export const checkChannelUpcomingStreams = async (channelId: string, launchName:
     allItems.push(...items);
   } catch (error: any) {
     const status = error.response?.status;
-    console.error(`  ❌ [YT] ${channelName} [live] → ${status === 403 ? '403 Forbidden — quota exceeded or bad API key' : error.message}`);
+    failed = true;
+    console.error(`  ❌ [YT] ${channelName} [live] → ${status === 403 ? '403 Forbidden — quota exceeded or bad API key' : status === 429 ? '429 rate limited' : error.message}`);
   }
 
   // Deduplicate by videoId across both searches
@@ -300,7 +305,7 @@ export const checkChannelUpcomingStreams = async (channelId: string, launchName:
   }
 
   // Cap at 2 streams per channel to avoid flooding the results
-  return matched.slice(0, 2).map((item: any) => ({
+  const streams = matched.slice(0, 2).map((item: any) => ({
     streamId: item.id.videoId,
     url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
     title: item.snippet.title,
@@ -310,6 +315,7 @@ export const checkChannelUpcomingStreams = async (channelId: string, launchName:
     platform: 'youtube',
     isLive: item.snippet.liveBroadcastContent === 'live',
   }));
+  return { streams, failed };
 };
 
 
@@ -322,15 +328,19 @@ export const matchStreamsToSingleLaunch = async (launch: any) => {
 
   API_QUOTA_TRACKER.callsThisRun = 0;
   const allStreams: any[] = [];
+  let failedChannels = 0;
+  let checkedChannels = 0;
 
-  for (const [channelId, config] of Object.entries(CHANNEL_CONFIGS)) {
+  for (const channelId of Object.keys(CHANNEL_CONFIGS)) {
     if (API_QUOTA_TRACKER.callsThisRun >= API_QUOTA_TRACKER.maxCallsPerRun) {
       console.warn(`⛔ [YT_SYNC] Quota guard hit (${API_QUOTA_TRACKER.maxCallsPerRun} calls). Stopping early.`);
       break;
     }
     
-    const found = await checkChannelUpcomingStreams(channelId, launch.name);
+    const { streams: found, failed } = await checkChannelUpcomingStreams(channelId, launch.name);
     allStreams.push(...found);
+    checkedChannels++;
+    if (failed) failedChannels++;
 
     await new Promise(r => setTimeout(r, 300));
   }
@@ -338,16 +348,24 @@ export const matchStreamsToSingleLaunch = async (launch: any) => {
   const uniqueStreams = deduplicateStreams(allStreams);
   const missionInfo = extractMissionInfo(launch.name);
 
-  console.log(`\n📋 [YT_SYNC] Done. Total matched streams: ${uniqueStreams.length}`);
+  console.log(`\n📋 [YT_SYNC] Done. Total matched streams: ${uniqueStreams.length}${failedChannels ? ` | ${failedChannels}/${checkedChannels} channel searches FAILED` : ''}`);
   console.log(`${'='.repeat(60)}\n`);
 
-  return uniqueStreams.map(stream => ({
-    ...stream,
-    launchId: launch.id,
-    matchScore: calculateMatchScore(stream.title, launch.name, missionInfo),
-    lastUpdated: new Date()
-  }));
+  return {
+    streams: uniqueStreams.map(stream => ({
+      ...stream,
+      launchId: launch.id,
+      matchScore: calculateMatchScore(stream.title, launch.name, missionInfo),
+      lastUpdated: new Date()
+    })),
+    failedChannels,
+  };
 };
+
+// One sync per launch at a time: several page loads arriving together would
+// otherwise each start a 22-search run, burning quota and tripping YouTube's
+// rate limit (429), which is exactly what empties results.
+const inFlightSyncs = new Map<string, Promise<any[]>>();
 
 // Streams almost never go up earlier than ~48h before a launch, so don't burn
 // YouTube quota on launches further out. `force=true` (e.g. user-initiated refresh)
@@ -355,13 +373,16 @@ export const matchStreamsToSingleLaunch = async (launch: any) => {
 const PROXIMITY_WINDOW_HOURS = 48;
 
 export const getOrSyncStreams = async (launch: any, force = false) => {
-  // Adaptive TTL: 30 min for launches within 24 hours, 12 hours otherwise
+  // Adaptive TTL: 30 min while a launch is close or underway, 12 hours otherwise.
+  // "Underway" = the webcast is live, or up to 6 h after T-0 — missions like
+  // Starship keep broadcasting long after liftoff, and new streams (and live
+  // status changes) must keep being picked up for the whole time.
   const now = new Date();
   const launchDate = new Date(launch.date || launch.net);
   const hoursUntilLaunch = (launchDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-  const isImminent = hoursUntilLaunch >= -1 && hoursUntilLaunch <= 24;
+  const isImminent = Boolean(launch.webcast_live) || (hoursUntilLaunch >= -6 && hoursUntilLaunch <= 24);
   const CACHE_TTL = isImminent
-    ? 30 * 60 * 1000      // 30 minutes for launches within 24h
+    ? 30 * 60 * 1000      // 30 minutes around launch / while live
     : 12 * 60 * 60 * 1000; // 12 hours otherwise
 
   if (!launch.id && !launch.slug) {
@@ -378,7 +399,7 @@ export const getOrSyncStreams = async (launch: any, force = false) => {
   }
 
   try {
-    let syncRecord = await StreamSync.findOne({ launchId: targetId });
+    const syncRecord = await StreamSync.findOne({ launchId: targetId });
 
     if (!force && syncRecord?.lastUpdated) {
       const age = now.getTime() - new Date(syncRecord.lastUpdated).getTime();
@@ -397,16 +418,38 @@ export const getOrSyncStreams = async (launch: any, force = false) => {
       console.log(`🆕 [YT_CACHE] MISS — No cache for "${launch.name}". Fetching...`);
     }
 
-    const freshStreams = await matchStreamsToSingleLaunch(launch);
-    const updatedStreams = freshStreams.map(s => ({ ...s, launchId: targetId }));
+    const running = inFlightSyncs.get(targetId);
+    if (running) return await running;
 
-    syncRecord = await StreamSync.findOneAndUpdate(
-      { launchId: targetId },
-      { streams: updatedStreams, lastUpdated: now },
-      { upsert: true, new: true }
-    );
+    const previous: any[] = (syncRecord?.streams ?? []).map((s: any) => (typeof s.toObject === 'function' ? s.toObject() : s));
+    const job = (async () => {
+      const { streams: freshStreams, failedChannels } = await matchStreamsToSingleLaunch(launch);
+      let next = freshStreams.map(s => ({ ...s, launchId: targetId }));
 
-    return syncRecord?.streams || updatedStreams;
+      // If any channel search failed we can't tell "gone" from "couldn't check",
+      // so keep previously found streams the fresh run didn't return. With every
+      // search failing this keeps the cache exactly as it was.
+      if (failedChannels > 0 && previous.length) {
+        const freshIds = new Set(next.map(s => s.streamId));
+        const kept = previous.filter(p => !freshIds.has(p.streamId));
+        console.warn(`⚠️  [YT_CACHE] ${failedChannels} channel search(es) failed for "${launch.name}" — keeping ${kept.length} previously found stream(s).`);
+        next = [...next, ...kept];
+      }
+
+      const saved = await StreamSync.findOneAndUpdate(
+        { launchId: targetId },
+        { streams: next, lastUpdated: new Date() },
+        { upsert: true, new: true }
+      );
+      return saved?.streams || next;
+    })();
+
+    inFlightSyncs.set(targetId, job);
+    try {
+      return await job;
+    } finally {
+      inFlightSyncs.delete(targetId);
+    }
   } catch (error) {
     console.error("❌ [YT_CACHE] STREAM_SYNC_ERROR:", error);
     const fallbackSync = await StreamSync.findOne({ launchId: targetId });

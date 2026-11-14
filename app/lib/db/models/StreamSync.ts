@@ -19,6 +19,7 @@ const streamSyncSchema = new Schema({
     thumbnailUrl: String,
     scheduledStartTime: Date,
     platform: String,
+    isLive: Boolean,
     matchScore: Number,
     lastUpdated: Date
   }]
@@ -34,6 +35,7 @@ export interface IStream {
   thumbnailUrl: string;
   scheduledStartTime: Date;
   platform: string;
+  isLive?: boolean;
   matchScore: number;
   lastUpdated: Date;
 }
