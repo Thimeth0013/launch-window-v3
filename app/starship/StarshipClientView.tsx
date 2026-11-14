@@ -1,14 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import {
-  Radio,
-  AlertTriangle,
-  Megaphone,
-  ArrowUpRight,
-  MapPin,
-  Clock,
-} from 'lucide-react';
 import type {
   StarshipVehicle,
   StarshipOrbiter,
@@ -31,8 +23,6 @@ export default function StarshipClientView({ data }: { data: any }) {
   const [visibleBoosters, setVisibleBoosters] = useState(12);
 
   const liveStreams = data.live_streams || [];
-  const roadClosures = data.road_closures || [];
-  const notices = data.notices || [];
 
   const rawVehicles = (data.vehicles || []).filter((v: any) => !v.is_placeholder);
   const rawOrbiters = (data.orbiters || []).filter((o: any) => !o.is_placeholder);
@@ -108,26 +98,6 @@ export default function StarshipClientView({ data }: { data: any }) {
           <span className="text-zinc-300">{upcoming.launches.length}</span> upcoming launch{upcoming.launches.length === 1 ? '' : 'es'}
         </p>
       </section>
-
-      {/* ====== ACTIVE NOTICES BANNER (only if any) ====== */}
-      {(roadClosures.length > 0 || notices.length > 0) && (
-        <section className="mb-8 md:mb-12 border-l-2 border-[#FF6B35] pl-5 md:pl-6 py-3 bg-[#FF6B35]/5">
-          <div className="flex items-center gap-3 mb-2">
-            <AlertTriangle className="w-4 h-4 text-[#FF6B35]" />
-            <span className="font-mono text-[10px] text-[#FF6B35] uppercase tracking-[0.4em] font-black">
-              Active Notices
-            </span>
-          </div>
-          <div className="space-y-1 font-mono text-xs text-zinc-300 uppercase tracking-widest">
-            {roadClosures.length > 0 && (
-              <p>{roadClosures.length} road closure{roadClosures.length === 1 ? '' : 's'} in effect</p>
-            )}
-            {notices.length > 0 && (
-              <p>{notices.length} notice{notices.length === 1 ? '' : 's'} posted</p>
-            )}
-          </div>
-        </section>
-      )}
 
       {/* ====== TABS NAVIGATION ====== */}
       <div className="flex flex-wrap items-center justify-between mb-12 border-b border-white/10 pb-4 gap-4">
