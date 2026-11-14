@@ -1,4 +1,5 @@
 import TimelineEngine from '@/components/ui/TimelineEngine';
+import StreamsSection, { type KnownStream } from '@/components/sections/StreamsSection';
 import CrewRoster from './CrewRoster';
 import {
   BarRow,
@@ -8,18 +9,22 @@ import {
   Stat,
   formatDate,
   formatLocalTime,
+  formatNet,
   formatNumber,
   formatShortDate,
   formatTMinus,
   formatUtcTime,
   humanDuration,
   inSentence,
+  isHourNet,
+  isPreciseNet,
   joinNodes,
   ordinal,
   parseRelativeTime,
 } from './primitives';
 import type { ChapterSpec, StoryContext } from './types';
-import { FlightDots, OrbitLadder, RecoveryPaths, TrackRecord, WindowTimeline, type RecoveryKind, type RecoveryPath } from './visuals';
+import { FlightDots, OrbitLadder, RecoveryPaths, TrackRecord, WindowTimeline, type RecoveryPath } from './visuals';
+import { classifyLanding, splashedDownInstead, type RecoveryKind } from '@/app/lib/launch/landing';
 
 // Chapter builders. Each takes the launch and returns a ChapterSpec, or null
 // when the launch has no data for that step — the story then simply skips it
@@ -447,6 +452,28 @@ export function windowChapter({ launch }: StoryContext): ChapterSpec | null {
   const hasP = p !== null && p !== undefined;
   const tone = !hasP ? undefined : p >= 75 ? 'go' : p >= 50 ? 'warn' : 'fail';
 
+  // No real T-0 yet (known only to the day, month, quarter…): window times
+  // would be placeholders, so say what's actually known instead.
+  if (!isPreciseNet(launch.net_precision) && !isHourNet(launch.net_precision)) {
+    return {
+      id: 'window',
+      title: 'The Window',
+      lede: (
+        <>
+          No exact launch time has been set yet. The launch is expected no earlier than{' '}
+          <D>{formatNet(launchTime(launch), launch.net_precision)}</D>
+          {hasP && (
+            <>
+              , and forecasters give <D>{p}%</D> odds of acceptable weather
+            </>
+          )}
+          .
+        </>
+      ),
+    };
+  }
+  const hourOnly = isHourNet(launch.net_precision);
+
   const lede = (
     <>
       {minutes <= 0 ? (
@@ -458,7 +485,8 @@ export function windowChapter({ launch }: StoryContext): ChapterSpec | null {
       ) : (
         <>
           The window opens at <D>{formatUtcTime(start)} UTC</D> on <D>{formatShortDate(start)}</D>
-          {local && <> ({local} at the pad)</>} and stays open for <D>{spanWords(minutes)}</D>.
+          {local && <> ({local} at the pad)</>} and stays open for <D>{spanWords(minutes)}</D>
+          {hourOnly && <>; the time is only accurate to the hour so far</>}.
         </>
       )}
       {hasP && (
@@ -583,28 +611,20 @@ const HOW: Record<RecoveryKind, string> = {
   other: 'Landing',
 };
 
-/**
- * LL2 has no "catch" landing type — a tower catch arrives as RTLS to a launch
- * mount (Starship's "Orbital Launch Mount B"). Read the location and the
- * landing description so it's described as what it is.
- */
-function classifyLanding(landing: any): RecoveryKind {
-  if (!landing?.attempt) return 'expended';
-  const abbrev = (landing.type?.abbrev ?? '').toUpperCase();
-  const name = (landing.type?.name ?? '').toLowerCase();
-  const text = `${landing.description ?? ''} ${landing.landing_location?.name ?? ''}`.toLowerCase();
-  if (abbrev === 'EXP' || name.includes('expend')) return 'expended';
-  if (/\bcatch|chopstick|launch mount|\btower\b/.test(text)) return 'catch';
-  if (abbrev === 'RTLS') return 'rtls';
-  if (abbrev === 'ASDS') return 'asds';
-  if (abbrev === 'OCEAN' || /ocean|splash/.test(name)) return 'ocean';
-  if (abbrev === 'PCL' || name.includes('parachute')) return 'parachute';
-  if (abbrev === 'VL' || name.includes('vertical')) return 'vertical';
-  return 'other';
-}
-
 export function recoveryChapter({ launch }: StoryContext): ChapterSpec | null {
-  const entries = [
+  type Entry = {
+    who: string;
+    landing: any;
+    fromOrbit: boolean;
+    /** The recovery plan, from the landing type and location. */
+    planned: RecoveryKind;
+    /** What the diagram draws: the plan, or a splashdown when the outcome says so. */
+    actual: RecoveryKind;
+    outcome: 'success' | 'failure' | 'pending';
+    loc: any;
+  };
+
+  const entries: Entry[] = [
     ...(launch.rocket?.launcher_stage ?? [])
       .filter((s: any) => s.landing)
       .map((s: any) => ({
@@ -615,16 +635,20 @@ export function recoveryChapter({ launch }: StoryContext): ChapterSpec | null {
     ...(launch.rocket?.spacecraft_stage ?? [])
       .filter((s: any) => s.landing)
       .map((s: any) => ({ who: s.spacecraft?.name ?? 'The spacecraft', landing: s.landing, fromOrbit: true })),
-  ].map(
-    (e: { who: string; landing: any; fromOrbit: boolean }): { who: string; landing: any; fromOrbit: boolean; kind: RecoveryKind; loc: any } => ({
-      ...e,
-      kind: classifyLanding(e.landing),
-      loc: e.landing.landing_location,
-    })
-  );
+  ].map((e: { who: string; landing: any; fromOrbit: boolean }) => {
+    // Space Devs keeps the landing *type* as the plan even after the fact (a
+    // booster that ended up in the sea is still "RTLS"); the result lives in
+    // `success` and the prose `description`. So: sentence = plan, legend =
+    // outcome, and the diagram follows a described splashdown.
+    const planned = classifyLanding(e.landing);
+    const outcome = e.landing.success === true ? 'success' : e.landing.success === false ? 'failure' : 'pending';
+    const splashed = splashedDownInstead(e.landing);
+    return { ...e, planned, actual: splashed ? ('ocean' as const) : planned, outcome, loc: e.landing.landing_location };
+  });
   if (!entries.length) return null;
 
-  // One sentence per vehicle, in flight order.
+  // The plan, one sentence per vehicle: "will …" until there's a result,
+  // "was to …" after (the result itself is in the legend).
   let previousLoc: string | null = null;
   const sentences = entries.map((e, i) => {
     const locName: string | undefined = e.loc?.name;
@@ -638,47 +662,57 @@ export function recoveryChapter({ launch }: StoryContext): ChapterSpec | null {
     ) : null;
     const lead = i === 0 && !e.fromOrbit ? 'After stage separation, ' : '';
     const who = <D>{e.who}</D>;
+    const will = e.outcome === 'pending' ? 'will' : 'was to';
+    const plan = (e.planned === 'other' ? e.landing.type?.name ?? HOW.other : HOW[e.planned]).toLowerCase();
 
     let body;
-    switch (e.kind) {
+    switch (e.planned) {
       case 'expended':
-        body = <>{who} won&apos;t be recovered — it&apos;s <D>expended</D> on this flight.</>;
+        body =
+          e.outcome === 'pending' ? (
+            <>{who} won&apos;t be recovered — it&apos;s <D>expended</D> on this flight.</>
+          ) : (
+            <>{who} wasn&apos;t going to be recovered — it was <D>expended</D> on this flight.</>
+          );
         break;
       case 'catch':
         body = e.fromOrbit ? (
-          <>{who} will come back from space for a <D>tower catch</D>{at}.</>
+          <>{who} {will} come back from space for a <D>tower catch</D>{at}.</>
         ) : (
-          <>{lead}{who} will fly back to be <D>caught by the launch tower</D>{at}.</>
+          <>{lead}{who} {will} fly back to be <D>caught by the launch tower</D>{at}.</>
         );
         break;
       case 'rtls':
-        body = <>{lead}{who} will fly back and touch down{at}, near the pad.</>;
+        body = <>{lead}{who} {will} fly back and touch down{at}, near the pad.</>;
         break;
       case 'asds':
-        body = <>{lead}{who} will land on the drone ship{locName ? <> <D>{locName}</D></> : null}{km}.</>;
+        body = <>{lead}{who} {will} land on the drone ship{locName ? <> <D>{locName}</D></> : null}{km}.</>;
         break;
       case 'ocean':
-        body = <>{lead}{who} will make an <D>ocean splashdown</D>{locName ? <> in the <D>{locName}</D></> : null}.</>;
+        body = <>{lead}{who} {will} make an <D>ocean splashdown</D>{locName ? <> in the <D>{locName}</D></> : null}.</>;
         break;
       case 'parachute':
-        body = <>{who} will come home under <D>parachutes</D>{at}.</>;
+        body = <>{who} {will} come home under <D>parachutes</D>{at}.</>;
         break;
       case 'vertical':
-        body = <>{lead}{who} will make a <D>vertical landing</D>{at}{km}.</>;
+        body = <>{lead}{who} {will} make a <D>vertical landing</D>{at}{km}.</>;
         break;
       default:
-        body = <>{lead}{who} will attempt a <D>{(e.landing.type?.name ?? 'landing').toLowerCase()}</D>{at}.</>;
+        body = <>{lead}{who} {will} attempt a <D>{plan}</D>{at}.</>;
     }
     return <span key={i}>{i > 0 ? ' ' : ''}{body}</span>;
   });
 
   const paths: RecoveryPath[] = entries.map((e) => ({
     who: e.who,
-    kind: e.kind,
+    kind: e.actual,
     fromOrbit: e.fromOrbit,
-    how: e.kind === 'other' ? e.landing.type?.name ?? HOW.other : HOW[e.kind],
+    how: e.planned === 'other' ? e.landing.type?.name ?? HOW.other : HOW[e.planned],
     where: e.loc?.abbrev && e.loc.abbrev !== 'N/A' ? e.loc.abbrev : e.loc?.name,
     km: e.landing.downrange_distance || null,
+    success: e.outcome === 'pending' ? null : e.outcome === 'success',
+    // Before a result the description just restates the plan — only show it after.
+    note: e.outcome === 'pending' ? null : e.landing.description || null,
   }));
 
   // Landing record for each distinct site that has one.
@@ -831,6 +865,89 @@ export function programChapter({ launch }: StoryContext): ChapterSpec | null {
     links: programs
       .flatMap((p) => [p.info_url && { href: p.info_url, label: programs.length > 1 ? p.name : 'Official site' }, p.wiki_url && programs.length === 1 && { href: p.wiki_url, label: 'Wikipedia' }])
       .filter(Boolean) as ChapterSpec['links'],
+  };
+}
+
+/* In the news — articles that mention this launch ------------------------- */
+
+export function newsChapter({ news }: StoryContext): ChapterSpec | null {
+  if (!news?.length) return null;
+  const sites = [...new Set(news.map((a) => a.news_site).filter(Boolean))] as string[];
+
+  return {
+    id: 'news',
+    title: 'In the News',
+    lede: (
+      <>
+        <D>{news.length}</D> recent {news.length === 1 ? 'story mentions' : 'stories mention'} this launch
+        {sites.length > 0 && (
+          <>
+            , from {joinNodes(sites.slice(0, 3).map((site) => <D key={site}>{site}</D>))}
+            {sites.length > 3 ? ' and others' : ''}
+          </>
+        )}
+        .
+      </>
+    ),
+    visual: (
+      <ol className="border-b border-white/10">
+        {news.map((a) => (
+          <li key={a.id} className="border-t border-white/10">
+            <a
+              href={a.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18BBF7]"
+            >
+              <div className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
+                <span className="text-[#FF6B35]">{a.news_site}</span> · {formatDate(a.published_at)}
+              </div>
+              <div className="mt-1 text-[15px] leading-snug text-zinc-100 transition-colors group-hover:text-[#18BBF7]">
+                {a.title} <span aria-hidden="true" className="text-zinc-600 group-hover:text-[#18BBF7]">↗</span>
+              </div>
+            </a>
+          </li>
+        ))}
+      </ol>
+    ),
+  };
+}
+
+/* Watch it live — webcast links from the launch data + our YouTube matcher - */
+
+export function watchChapter({ launch }: StoryContext): ChapterSpec {
+  // Official first, then whatever is live now, then Space Devs' own priority.
+  const known: KnownStream[] = [...(launch.vid_urls ?? [])]
+    .filter((v: any) => v?.url)
+    .sort((a: any, b: any) => {
+      const official = (v: any) => (/^official/i.test(v.type?.name ?? '') ? 0 : 1);
+      return official(a) - official(b) || Number(Boolean(b.live)) - Number(Boolean(a.live)) || (a.priority ?? 99) - (b.priority ?? 99);
+    })
+    .map((v: any) => ({
+      url: v.url,
+      title: v.title,
+      publisher: v.publisher,
+      kind: v.type?.name ? v.type.name.charAt(0) + v.type.name.slice(1).toLowerCase() : null,
+      image: v.feature_image,
+      live: Boolean(v.live),
+    }));
+
+  const liveNow = Boolean(launch.webcast_live || known.some((k) => k.live));
+  const officialCount = known.filter((k) => /^official/i.test(k.kind ?? '')).length;
+
+  return {
+    id: 'watch',
+    title: 'Watch It Live',
+    // While live, the stream cards (with their Live badges) speak for themselves.
+    lede: liveNow ? undefined : officialCount > 0 ? (
+      <>
+        <D>{officialCount}</D> official {officialCount === 1 ? 'webcast is' : 'webcasts are'} lined up, alongside community streams.
+      </>
+    ) : (
+      <>Follow the launch on the official broadcast and community streams.</>
+    ),
+    visual: <StreamsSection launchSlug={launch.slug} known={known} />,
+    wide: true,
   };
 }
 

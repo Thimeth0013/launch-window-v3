@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useServerTime } from '../../app/lib/hooks/useServerTime';
 import { AlertTriangle, Activity } from 'lucide-react';
+import { formatNet, isHourNet, isPreciseNet, type NetPrecision } from '@/components/launch-story/primitives';
 
 // UPDATED INTERFACE: Matches the MongoDB schema exactly
 interface MissionClockProps {
@@ -18,9 +19,16 @@ interface MissionClockProps {
     comment: string;
     created_on: string;
   }>;
+  /**
+   * LL2 net_precision. Coarser than a minute (hour excepted) means there is
+   * no real T-0 yet, so the clock shows the date at its known precision
+   * ("NET Q4 2026") instead of a seconds countdown.
+   */
+  netPrecision?: NetPrecision;
 }
 
-export default function MissionClock({ launchDate, status, updates }: MissionClockProps) {
+export default function MissionClock({ launchDate, status, updates, netPrecision }: MissionClockProps) {
+  const precise = isPreciseNet(netPrecision) || isHourNet(netPrecision);
   const { getServerTime, isLoading: timeSyncLoading } = useServerTime();
   const [timeLeft, setTimeLeft] = useState({ d: '00', h: '00', m: '00', s: '00', prefix: 'T-' });
   const [isHold, setIsHold] = useState(false);
@@ -47,6 +55,7 @@ export default function MissionClock({ launchDate, status, updates }: MissionClo
   useEffect(() => {
     if (timeSyncLoading) return;
 
+    if (!precise) return;
     const interval = setInterval(() => {
       if (isHold) return;
 
@@ -70,9 +79,9 @@ export default function MissionClock({ launchDate, status, updates }: MissionClo
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [launchDate, getServerTime, timeSyncLoading, isHold]);
+  }, [launchDate, getServerTime, timeSyncLoading, isHold, precise]);
 
-  if (timeSyncLoading) {
+  if (timeSyncLoading && precise) {
     return (
       <div className="flex justify-evenly items-center py-8">
         <div className='flex gap-4'>
@@ -110,6 +119,20 @@ export default function MissionClock({ launchDate, status, updates }: MissionClo
         )}
       </div>
 
+      {!precise ? (
+        <div className="flex flex-col items-center">
+          <div className="flex items-baseline gap-3 md:gap-4">
+            <span className="text-sm md:text-base font-bold uppercase tracking-[0.3em] text-zinc-400">NET</span>
+            <span className="font-mono text-3xl md:text-5xl font-bold tracking-tight text-white">
+              {formatNet(launchDate, netPrecision)}
+            </span>
+          </div>
+          <span className="mt-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+            Exact launch time not yet announced
+          </span>
+        </div>
+      ) : (
+      <>
       {/* 2. UPDATED LAYOUT: Time units grid with inline prefix */}
       <div className="flex items-start justify-center gap-2 md:gap-4 lg:gap-6">
         
@@ -135,6 +158,13 @@ export default function MissionClock({ launchDate, status, updates }: MissionClo
         
         <TimeUnit value={timeLeft.s} label="Sec" isHold={isHold} />
       </div>
+      {isHourNet(netPrecision) && (
+        <span className="mt-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+          Time accurate to the hour
+        </span>
+      )}
+      </>
+      )}
     </div>
   );
 }

@@ -268,3 +268,51 @@ export function formatTMinus(ms: number): string {
   if (m > 0) return `${prefix}${m}m${s ? ` ${s}s` : ''}`;
   return `${prefix}${s}s`;
 }
+
+// ---------------------------------------------------------------------------
+// Launch-date precision (LL2 `net_precision`). A NET known only to the month
+// or quarter must not be shown as a to-the-second countdown.
+
+export type NetPrecision = { id?: number; name?: string; abbrev?: string } | null | undefined;
+
+/** True when T-0 is known to the minute or better — safe for a running countdown. */
+export function isPreciseNet(p: NetPrecision): boolean {
+  if (!p) return true; // older docs without precision: keep previous behaviour
+  return ['SEC', 'MIN'].includes((p.abbrev ?? '').toUpperCase()) || p.id === 0 || p.id === 1;
+}
+
+/** True when the time is only good to the hour — countdown is fine with a caveat. */
+export function isHourNet(p: NetPrecision): boolean {
+  return (p?.abbrev ?? '').toUpperCase() === 'HR' || p?.id === 2;
+}
+
+/**
+ * The launch date at the precision it's actually known: "Nov 20, 2026",
+ * "December 2026", "Q4 2026", "H1 2027", "2027". UTC, server/client-stable.
+ */
+export function formatNet(iso: string | Date | null | undefined, p: NetPrecision): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const year = d.getUTCFullYear();
+  const abbrev = (p?.abbrev ?? '').toUpperCase();
+  const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-US', { ...o, timeZone: 'UTC' }).format(d);
+
+  if (/^Q[1-4]$/.test(abbrev)) return `${abbrev} ${year}`;
+  if (/^H[12]$/.test(abbrev)) return `${abbrev} ${year}`;
+  switch (abbrev) {
+    case 'Y':
+      return String(year);
+    case 'FY':
+      return `FY ${year}`;
+    case 'DEC':
+      return `${Math.floor(year / 10) * 10}s`;
+    case 'M':
+      return fmt({ month: 'long', year: 'numeric' });
+    case 'W':
+      return `Week of ${fmt({ month: 'short', day: 'numeric', year: 'numeric' })}`;
+    case 'DAY':
+      return fmt({ month: 'short', day: 'numeric', year: 'numeric' });
+    default:
+      return fmt({ month: 'short', day: 'numeric', year: 'numeric' });
+  }
+}

@@ -1,3 +1,4 @@
+import type { RecoveryKind } from '@/app/lib/launch/landing';
 import { Label, formatNumber, formatShortDate, formatUtcTime, formatLocalTime } from './primitives';
 
 // Small, data-driven diagrams used by the story chapters. Server-rendered,
@@ -253,7 +254,7 @@ export function OrbitLadder({ abbrev, name }: { abbrev?: string | null; name?: s
 /* schematic: the ascent (dashed) leaves the pad; boosters return from the    */
 /* separation point, ships come back in from orbit at the right edge.         */
 
-export type RecoveryKind = 'catch' | 'rtls' | 'asds' | 'ocean' | 'parachute' | 'vertical' | 'expended' | 'other';
+export type { RecoveryKind };
 
 export type RecoveryPath = {
   who: string;
@@ -264,6 +265,10 @@ export type RecoveryPath = {
   how: string;
   where?: string | null;
   km?: number | null;
+  /** Recorded outcome once known: true = recovered as planned, false = not. */
+  success?: boolean | null;
+  /** What actually happened, in the data provider's words (only once known). */
+  note?: string | null;
 };
 
 const GROUND = 126;
@@ -366,7 +371,8 @@ export function RecoveryPaths({ padLabel, paths }: { padLabel: string; paths: Re
         </div>
         <ul className="border-b border-white/10">
           {paths.map((p, i) => (
-            <li key={i} className="flex items-baseline justify-between gap-4 border-t border-white/10 py-2.5">
+            <li key={i} className="border-t border-white/10 py-2.5">
+              <div className="flex items-baseline justify-between gap-4">
               <span className="flex min-w-0 items-baseline gap-3">
                 <span
                   aria-hidden="true"
@@ -378,7 +384,11 @@ export function RecoveryPaths({ padLabel, paths }: { padLabel: string; paths: Re
               </span>
               <span className="shrink-0 text-right text-[13px] text-zinc-300">
                 {[p.where, p.km ? `${formatNumber(p.km)} km downrange` : null].filter(Boolean).join(' · ')}
+                {p.success === true && <span className="ml-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-green-400">Recovered</span>}
+                {p.success === false && <span className="ml-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-red-400">Not recovered</span>}
               </span>
+              </div>
+              {p.note && <p className="mt-1 pl-8 text-xs leading-relaxed text-zinc-400">{p.note}</p>}
             </li>
           ))}
         </ul>

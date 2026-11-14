@@ -31,4 +31,6 @@ export type ChapterSpec = {
 
 export type StoryContext = {
   launch: any;
+  /** Synced articles that mention this launch (by Space Devs launch id). */
+  news?: any[];
 };

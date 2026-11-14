@@ -1,4 +1,3 @@
-import StreamsSection from '@/components/sections/StreamsSection';
 import Chapter from './Chapter';
 import {
   aboardChapter,
@@ -6,12 +5,14 @@ import {
   destinationChapter,
   logChapter,
   missionChapter,
+  newsChapter,
   padChapter,
   programChapter,
   recordsChapter,
   recoveryChapter,
   rocketChapter,
   timelineChapter,
+  watchChapter,
   windowChapter,
 } from './chapters';
 import type { ChapterSpec, StoryContext } from './types';
@@ -34,19 +35,14 @@ const BUILDERS = [
   recoveryChapter,
   recordsChapter,
   programChapter,
+  newsChapter,
 ];
 
-export default function LaunchStory({ launch }: { launch: any }) {
-  const ctx: StoryContext = { launch };
+export default function LaunchStory({ launch, news = [] }: { launch: any; news?: any[] }) {
+  const ctx: StoryContext = { launch, news };
   const chapters: ChapterSpec[] = BUILDERS.map((build) => build(ctx)).filter((c): c is ChapterSpec => c !== null);
 
-  chapters.push({
-    id: 'watch',
-    title: 'Watch It Live',
-    lede: <>Follow the launch on the official broadcast and community streams.</>,
-    visual: <StreamsSection launchSlug={launch.slug} />,
-    wide: true,
-  });
+  chapters.push(watchChapter(ctx));
 
   // The live log closes the story.
   chapters.push(logChapter(ctx));
