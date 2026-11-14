@@ -305,7 +305,10 @@ export const fetchLaunchDetailed = async (id: string) => {
   console.log(`📡 [SYNC_DETAILED] Fetching detailed data for ${id}...`);
 
   const response = await fetchWithRetry(
-    `${LAUNCH_LIBRARY_API}/launches/upcoming/${id}/`,
+    // `/launches/{id}/`, not `/launches/upcoming/{id}/`: the upcoming route
+    // stops serving a launch some time after liftoff, which would freeze
+    // post-launch results (landings, deployment) at whatever we had cached.
+    `${LAUNCH_LIBRARY_API}/launches/${id}/`,
     { params: { mode: 'detailed' }, timeout: 30000 }
   );
 
