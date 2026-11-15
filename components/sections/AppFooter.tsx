@@ -44,7 +44,7 @@ export default function AppFooter() {
         {/* Credits */}
         <div className="flex flex-col gap-1.5 font-mono text-[9px] text-zinc-600 uppercase tracking-widest md:text-right">
           <p>
-            Data —{' '}
+            Data:{' '}
             <a
               href="https://thespacedevs.com"
               target="_blank"

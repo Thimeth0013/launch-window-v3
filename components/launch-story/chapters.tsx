@@ -54,7 +54,7 @@ export function missionChapter({ launch }: StoryContext): ChapterSpec | null {
     title: 'The Mission',
     lede: description || (
       <>
-        <D>{m.name ?? launch.name}</D> — the launch provider hasn&apos;t published a mission description yet.
+        No mission description has been published for <D>{m.name ?? launch.name}</D> yet.
       </>
     ),
     ledeSize: description && description.length > 240 ? 'prose' : 'display',
@@ -96,13 +96,11 @@ export function rocketChapter({ launch }: StoryContext): ChapterSpec | null {
           )}
           {ok === total ? (
             <>
-              {' '}
-              — <D>every one</D> a success.
+              , and <D>every one</D> was a success.
             </>
           ) : (
             <>
-              {' '}
-              — <D>{formatNumber(ok)}</D> of them successfully.
+              , <D>{formatNumber(ok)}</D> of them successfully.
             </>
           )}
         </>
@@ -132,7 +130,7 @@ export function rocketChapter({ launch }: StoryContext): ChapterSpec | null {
   // Headline specs sit right under the sentence; the bars go beside it.
   const aside =
     specs.length > 0 ? (
-      <div data-scroll-stagger className="grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-3 lg:grid-cols-2">
+      <div data-scroll-stagger className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
         {specs.map((s) => (
           <Stat key={s.label} label={s.label} value={s.value} unit={s.unit} />
         ))}
@@ -211,7 +209,7 @@ export function boosterChapter({ launch }: StoryContext): ChapterSpec | null {
   } else if (n <= 1) {
     lede = (
       <>
-        {boosterPrefix(serial)}<D>{serial}</D> is brand new — this is its <D>first flight</D>.
+        {boosterPrefix(serial)}<D>{serial}</D> is brand new. This is its <D>first flight</D>.
       </>
     );
   } else {
@@ -237,18 +235,17 @@ export function boosterChapter({ launch }: StoryContext): ChapterSpec | null {
         const flight = flightNo(s);
         const status: string | undefined = b.status?.name;
         const stats = [
-          { label: 'This flight', value: `#${flight}`, accent: true, sub: flight === 1 ? 'Debut' : undefined },
-          { label: 'Flown before', value: String(Math.max(0, flight - 1)), sub: flight === 1 ? 'Never flown' : undefined },
+          { label: 'This flight', value: `#${flight}`, accent: true, sub: flight === 1 ? 'Debut' : `${flight - 1} previous flight${flight - 1 === 1 ? '' : 's'}` },
           status && {
             label: 'Status',
             value: status.charAt(0).toUpperCase() + status.slice(1),
             tone: /active/i.test(status) ? ('go' as const) : undefined,
           },
-          s.turn_around_time && { label: 'Turnaround', value: humanDuration(s.turn_around_time), sub: 'Since last flight' },
+          s.turn_around_time && { label: 'Turnaround', value: humanDuration(s.turn_around_time), sub: 'since last flight' },
           b.attempted_landings > 0 && {
             label: 'Landings',
             value: `${b.successful_landings ?? 0}/${b.attempted_landings}`,
-            sub: 'Successful',
+            sub: 'successful',
           },
         ].filter(Boolean) as Array<{ label: string; value: string; sub?: string; accent?: boolean; tone?: 'go' }>;
 
@@ -259,7 +256,7 @@ export function boosterChapter({ launch }: StoryContext): ChapterSpec | null {
                 {s.type} · <span className="text-white">{b.serial_number ?? 'TBD'}</span>
               </Label>
             )}
-            <div data-scroll-stagger className="grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-3">
+            <div data-scroll-stagger className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
               {stats.map((st) => (
                 <Stat key={st.label} label={st.label} value={st.value} sub={st.sub} accent={st.accent} tone={st.tone} />
               ))}
@@ -544,8 +541,7 @@ export function timelineChapter({ launch }: StoryContext): ChapterSpec | null {
         <D>{last.e.type?.abbrev}</D> at <D>{formatTMinus(last.t)}</D>
         {spanMin > 0 ? (
           <>
-            {' '}
-            — <D>{events.length}</D> milestones in about <D>{spanWords(spanMin)}</D>
+            , covering <D>{events.length}</D> milestones in about <D>{spanWords(spanMin)}</D>
           </>
         ) : null}
         .
@@ -670,9 +666,9 @@ export function recoveryChapter({ launch }: StoryContext): ChapterSpec | null {
       case 'expended':
         body =
           e.outcome === 'pending' ? (
-            <>{who} won&apos;t be recovered — it&apos;s <D>expended</D> on this flight.</>
+            <>{who} won&apos;t be recovered. It&apos;s <D>expended</D> on this flight.</>
           ) : (
-            <>{who} wasn&apos;t going to be recovered — it was <D>expended</D> on this flight.</>
+            <>{who} wasn&apos;t going to be recovered. It was <D>expended</D> on this flight.</>
           );
         break;
       case 'catch':
@@ -897,7 +893,7 @@ export function newsChapter({ news }: StoryContext): ChapterSpec | null {
               href={a.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group block py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18BBF7]"
+              className="group block py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18BBF7]"
             >
               <div className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
                 <span className="text-[#FF6B35]">{a.news_site}</span> · {formatDate(a.published_at)}

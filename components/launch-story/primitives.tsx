@@ -47,7 +47,11 @@ export function Label({ children, className = '' }: { children: ReactNode; class
   );
 }
 
-/** A number with a label above it. Top hairline is the only chrome. */
+/**
+ * A headline number: a hairline on top, then the value, with the label and
+ * an optional note tight under it. With a `tone`, the value is a status
+ * (coloured dot + text) rather than a big number.
+ */
 export function Stat({
   label,
   value,
@@ -64,34 +68,40 @@ export function Stat({
   accent?: boolean;
   tone?: Tone;
 }) {
-  const colour = tone ? TONE_TEXT[tone] : accent ? 'text-[#FF6B35]' : 'text-white';
   return (
-    <div className="min-w-0 border-t border-white/10 pt-3">
-      <Label className="mb-1">{label}</Label>
-      <div className={`font-mono text-xl font-semibold tabular-nums leading-tight md:text-2xl ${colour}`}>
-        {value}
-        {unit && <span className="ml-1 text-xs font-normal text-zinc-500">{unit}</span>}
-      </div>
-      {sub && <div className="mt-1 text-[11px] text-zinc-500">{sub}</div>}
+    <div className="min-w-0 border-t border-white/10 pt-2.5">
+      {tone ? (
+        <div className="flex items-center gap-1.5 text-[15px] font-medium leading-tight text-white">
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_BG[tone]}`} />
+          {value}
+        </div>
+      ) : (
+        <div className={`truncate font-mono text-lg font-semibold leading-tight tabular-nums ${accent ? 'text-[#FF6B35]' : 'text-white'}`}>
+          {value}
+          {unit && <span className="ml-1 text-[11px] font-normal text-zinc-500">{unit}</span>}
+        </div>
+      )}
+      <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">{label}</div>
+      {sub && <div className="truncate text-[11px] leading-snug text-zinc-600">{sub}</div>}
     </div>
   );
 }
 
 type RowSpec = { label: ReactNode; value: ReactNode; tone?: Tone };
 
-/** Label-left / value-right rows. Empty values are dropped, never shown as "N/A". */
+/** Label-left / value-right rows with a hairline between each. Empty values are dropped, never shown as "N/A". */
 export function Rows({ rows, className = '' }: { rows: Array<RowSpec | null | false | undefined>; className?: string }) {
   const visible = rows.filter((r): r is RowSpec => !!r && r.value !== null && r.value !== undefined && r.value !== '');
   if (!visible.length) return null;
   return (
-    <div className={`border-b border-white/10 ${className}`}>
+    <dl className={`border-b border-white/10 ${className}`}>
       {visible.map((r, i) => (
         <div key={i} className="flex items-baseline justify-between gap-6 border-t border-white/10 py-2.5">
-          <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">{r.label}</span>
-          <span className={`min-w-0 text-right text-[13px] ${r.tone ? TONE_TEXT[r.tone] : 'text-zinc-100'}`}>{r.value}</span>
+          <dt className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">{r.label}</dt>
+          <dd className={`min-w-0 break-words text-right text-[13px] leading-snug ${r.tone ? TONE_TEXT[r.tone] : 'text-zinc-100'}`}>{r.value}</dd>
         </div>
       ))}
-    </div>
+    </dl>
   );
 }
 
