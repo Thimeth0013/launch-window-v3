@@ -34,6 +34,7 @@ async function getLaunch(slug: string) {
   if (!launch) notFound();
   return JSON.parse(JSON.stringify(launch));
 }
+
 export default async function LaunchDetailPage({ params }: LaunchDetailPageProps) {
   // 5. Await the params before extracting the slug
   const { slug } = await params;
@@ -41,7 +42,6 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
   // Related news is keyed by the Space Devs launch id (not the slug). A failure
   // here only costs the "In the News" chapter, never the page.
   const news = JSON.parse(JSON.stringify(await getArticlesForLaunch(launch.id).catch(() => [])));
-  const liveNow = Boolean(launch.webcast_live || launch.vid_urls?.some((v: { live?: boolean }) => v.live));
 
   const launcher = launch.rocket?.launcher_stage?.[0] || null;
   const updates = launch.updates || [];
@@ -147,24 +147,10 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
 
         <a
           href="#chapter-watch"
-          className={`fixed bottom-8 right-6 z-50 inline-flex items-center gap-2 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider border ${
-            liveNow
-              ? 'bg-[#FF6B35] text-black border-[#FF6B35] hover:bg-[#FF6B35]/90'
-              : 'bg-black/20 text-white/80 border-white/10 hover:bg-[#FF6B35]/40'
-          }`}
+          className="fixed bottom-8 right-6 z-50 inline-flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/80 hover:bg-[#FF6B35]/40 border border-white/10"
           title="Go to broadcasts"
         >
-          {liveNow ? (
-            <>
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-black opacity-60 motion-reduce:animate-none" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-black" />
-              </span>
-              Live now
-            </>
-          ) : (
-            '↓ Live Broadcasts'
-          )}
+          ↓ Live Broadcasts
         </a>
 
       </div>

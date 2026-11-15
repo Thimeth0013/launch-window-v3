@@ -7,8 +7,7 @@ import { Youtube, MonitorPlay } from 'lucide-react';
 //
 // Two sources, merged:
 //  1. `known` — the webcast links The Space Devs attach to the launch
-//     (`vid_urls`): official and community streams, typed and with their own
-//     live flag. Rendered immediately, no API call.
+//     (`vid_urls`): official and community streams, typed. Rendered immediately, no API call.
 //  2. Our YouTube matcher (`/api/launches/[slug]/streams`), which finds other
 //     channels. Its results are appended, skipping videos already listed.
 
@@ -18,7 +17,6 @@ interface Stream {
   title: string;
   channelName: string;
   thumbnailUrl?: string | null;
-  isLive?: boolean;
   /** "Official webcast", "Unofficial webcast", "Re-stream"… (known links only). */
   kind?: string | null;
   isYouTube: boolean;
@@ -31,7 +29,6 @@ export interface KnownStream {
   publisher?: string | null;
   kind?: string | null;
   image?: string | null;
-  live?: boolean;
 }
 
 interface MatchedStream {
@@ -65,7 +62,6 @@ function fromKnown(s: KnownStream): Stream {
     title: s.title || s.publisher || 'Webcast',
     channelName: s.publisher || hostOf(s.url),
     thumbnailUrl: s.image || (id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null),
-    isLive: s.live,
     kind: s.kind,
     isYouTube: Boolean(id),
   };
@@ -105,7 +101,6 @@ export default function StreamsSection({ launchSlug, known = [] }: { launchSlug:
         title: m.title,
         channelName: m.channelName,
         thumbnailUrl: m.thumbnailUrl,
-        isLive: m.isLive,
         isYouTube: true,
       })),
   ];
@@ -161,12 +156,6 @@ export default function StreamsSection({ launchSlug, known = [] }: { launchSlug:
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <Icon className="w-12 h-12 text-white/50 group-hover:text-[#FF0000] transition-colors drop-shadow-lg" />
                 </div>
-                {stream.isLive && (
-                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-[#FF6B35] px-2 py-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping motion-reduce:animate-none" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-black">Live</span>
-                  </div>
-                )}
               </div>
               <div className="pt-3 bg-black">
                 <p className="text-[11px] text-zinc-500 font-medium uppercase tracking-[0.12em] mb-1 truncate">

@@ -916,12 +916,12 @@ export function newsChapter({ news }: StoryContext): ChapterSpec | null {
 /* Watch it live — webcast links from the launch data + our YouTube matcher - */
 
 export function watchChapter({ launch }: StoryContext): ChapterSpec {
-  // Official first, then whatever is live now, then Space Devs' own priority.
+  // Official first, then Space Devs' own priority.
   const known: KnownStream[] = [...(launch.vid_urls ?? [])]
     .filter((v: any) => v?.url)
     .sort((a: any, b: any) => {
       const official = (v: any) => (/^official/i.test(v.type?.name ?? '') ? 0 : 1);
-      return official(a) - official(b) || Number(Boolean(b.live)) - Number(Boolean(a.live)) || (a.priority ?? 99) - (b.priority ?? 99);
+      return official(a) - official(b) || (a.priority ?? 99) - (b.priority ?? 99);
     })
     .map((v: any) => ({
       url: v.url,
@@ -929,17 +929,14 @@ export function watchChapter({ launch }: StoryContext): ChapterSpec {
       publisher: v.publisher,
       kind: v.type?.name ? v.type.name.charAt(0) + v.type.name.slice(1).toLowerCase() : null,
       image: v.feature_image,
-      live: Boolean(v.live),
     }));
 
-  const liveNow = Boolean(launch.webcast_live || known.some((k) => k.live));
   const officialCount = known.filter((k) => /^official/i.test(k.kind ?? '')).length;
 
   return {
     id: 'watch',
     title: 'Watch It Live',
-    // While live, the stream cards (with their Live badges) speak for themselves.
-    lede: liveNow ? undefined : officialCount > 0 ? (
+    lede: officialCount > 0 ? (
       <>
         <D>{officialCount}</D> official {officialCount === 1 ? 'webcast is' : 'webcasts are'} lined up, alongside community streams.
       </>
