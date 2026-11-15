@@ -108,14 +108,16 @@
   animation: marquee 30s linear infinite;
 }
 
-/* Pause on hover - direct hover on animated element */
-.animate-marquee:hover {
-  animation-play-state: paused;
-}
+/* Pause on hover — mouse only. On touch a tap fakes :hover and it sticks,
+   leaving the marquee frozen until the user taps elsewhere. */
+@media (hover: hover) and (pointer: fine) {
+  .animate-marquee:hover {
+    animation-play-state: paused;
+  }
 
-/* Pause on hover - when hovering parent container */
-.hover\:pause-marquee:hover .animate-marquee {
-  animation-play-state: paused;
+  .hover\:pause-marquee:hover .animate-marquee {
+    animation-play-state: paused;
+  }
 }
 
 @layer utilities {
@@ -214,4 +216,54 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* ── Mobile platform layer ─────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent; /* no grey flash over tapped elements */
+    -webkit-text-size-adjust: 100%; /* no font inflation in landscape */
+  }
+
+  /* Fire click immediately (no double-tap-zoom wait) on anything tappable. */
+  a,
+  button,
+  [role='button'],
+  summary,
+  label {
+    touch-action: manipulation;
+  }
+
+  /* Controls aren't content: long-press shouldn't select their label or pop
+     the callout. Body text stays selectable. */
+  button,
+  [role='button'] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Press feedback on finger-down, since the tap highlight is gone. */
+  button:active,
+  [role='button']:active {
+    opacity: 0.72;
+  }
+}
+
+/* The landscape notch sits over the left/right edge with viewport-fit=cover;
+   keep page content clear of it (insets are 0 in portrait). */
+#page-frame {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* iOS zooms the page into any input under 16px and never zooms back out.
+   Unlayered so it beats the inputs' text-[10px] utilities on touch screens. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }

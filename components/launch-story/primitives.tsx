@@ -164,7 +164,7 @@ export function TextLink({ href, children }: { href: string; children: ReactNode
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#18BBF7] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18BBF7]"
+      className="-my-3 inline-flex items-center gap-1.5 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#18BBF7] transition-colors hover:text-white active:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18BBF7]"
     >
       {children}
       <span aria-hidden="true">↗</span>

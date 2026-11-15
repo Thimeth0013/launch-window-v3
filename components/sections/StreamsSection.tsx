@@ -141,7 +141,7 @@ export default function StreamsSection({ launchSlug, known = [] }: { launchSlug:
               href={stream.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative block overflow-hidden bg-black focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#18BBF7]"
+              className="group relative block overflow-hidden bg-black active:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#18BBF7]"
             >
               <div className="aspect-video relative overflow-hidden bg-zinc-950">
                 {stream.thumbnailUrl && (

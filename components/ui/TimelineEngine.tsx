@@ -201,7 +201,7 @@ export default function TimelineEngine({ launchDate: initialLaunchDate, launchId
           ref={scroller}
           tabIndex={0}
           aria-label="Flight timeline, scroll horizontally"
-          className="overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#18BBF7]"
+          className="overflow-x-auto overscroll-x-contain snap-x snap-proximity pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#18BBF7]"
           style={{ scrollbarWidth: 'none' }}
         >
           {/* pl/pt: the rotated diamond nodes poke ~3px outside their box */}
@@ -213,7 +213,7 @@ export default function TimelineEngine({ launchDate: initialLaunchDate, launchId
                   key={`${e.relative_time}-${i}`}
                   data-event
                   aria-current={state === 'now' ? 'step' : undefined}
-                  className="relative w-44 shrink-0 pr-6 md:w-52"
+                  className="relative w-44 shrink-0 snap-start pr-6 md:w-52"
                 >
                   {/* Rail segment — orange once this event has passed */}
                   <div
@@ -269,7 +269,7 @@ export default function TimelineEngine({ launchDate: initialLaunchDate, launchId
       </div>
 
       {/* Progress strip — one segment per event; click to jump */}
-      <div className="mt-6 flex h-1.5 gap-px">
+      <div className="mt-3 flex gap-px">
         {events.map((e, i) => {
           const state = stateOf(e.t);
           return (
@@ -279,10 +279,14 @@ export default function TimelineEngine({ launchDate: initialLaunchDate, launchId
               onClick={() => scrollToIndex(i)}
               title={`${formatTMinus(e.t)} · ${e.type.abbrev}`}
               aria-label={`Jump to ${e.type.abbrev}, ${formatTMinus(e.t)}`}
-              className={`h-full flex-1 transition-colors duration-500 ${
-                state === 'now' ? 'bg-[#FF6B35]' : state === 'past' ? 'bg-[#FF6B35]/60 hover:bg-[#FF6B35]' : 'bg-white/10 hover:bg-white/40'
-              }`}
-            />
+              className="group/seg flex h-6 flex-1 items-center"
+            >
+              <span
+                className={`block h-1.5 w-full transition-colors duration-500 ${
+                  state === 'now' ? 'bg-[#FF6B35]' : state === 'past' ? 'bg-[#FF6B35]/60 group-hover/seg:bg-[#FF6B35]' : 'bg-white/10 group-hover/seg:bg-white/40'
+                }`}
+              />
+            </button>
           );
         })}
       </div>

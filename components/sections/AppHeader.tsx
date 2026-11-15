@@ -89,7 +89,7 @@ export default function AppHeader() {
   return (
     <>
       <header
-        className={`${positionClasses} z-40 shrink-0 px-4 md:px-8 py-3 md:py-4 flex items-center justify-between gap-4 transition-all duration-300 ${hidden && !isMobileOpen ? '-translate-y-full' : 'translate-y-0'} ${visualBg}`}
+        className={`${positionClasses} z-40 shrink-0 px-4 md:px-8 py-3 md:py-4 pt-[calc(0.75rem_+_env(safe-area-inset-top,0px))] md:pt-[calc(1rem_+_env(safe-area-inset-top,0px))] flex items-center justify-between gap-4 transition-all duration-300 ${hidden && !isMobileOpen ? '-translate-y-full' : 'translate-y-0'} ${visualBg}`}
       >
         <div className="flex items-center gap-3 md:gap-4">
           {!isHome && (
@@ -158,7 +158,7 @@ export default function AppHeader() {
 
       {/* Mobile Sidebar */}
       <div
-        className={`fixed inset-y-0 right-0 w-[85vw] max-w-[400px] z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border-l border-white/10 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col md:hidden ${isMobileOpen ? 'translate-x-0 shadow-[-20px_0_40px_rgba(0,0,0,0.5)]' : 'translate-x-full'}`}
+        className={`fixed inset-y-0 right-0 w-[85vw] max-w-[400px] z-50 pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pr-[env(safe-area-inset-right,0px)] bg-[#0a0a0a]/95 backdrop-blur-2xl border-l border-white/10 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col md:hidden ${isMobileOpen ? 'translate-x-0 shadow-[-20px_0_40px_rgba(0,0,0,0.5)]' : 'translate-x-full'}`}
       >
         {/* Sidebar Header */}
         <div className="flex items-center justify-between px-6 py-6 border-b border-white/10 shrink-0">
@@ -182,7 +182,7 @@ export default function AppHeader() {
         </div>
 
         {/* Sidebar Links */}
-        <nav className="flex flex-col px-6 py-8 overflow-y-auto grow gap-2">
+        <nav className="flex flex-col px-6 py-8 overflow-y-auto overscroll-contain grow gap-2">
           <MobileNavLink href="/" label="HOME" isActive={isHome} index={0} isMobileOpen={isMobileOpen} />
           <MobileNavLink href="/launches" label="LAUNCHES" isActive={isLaunches} index={1} isMobileOpen={isMobileOpen} />
           <MobileNavLink href="/articles" label="NEWS" isActive={isArticles} index={2} isMobileOpen={isMobileOpen} />

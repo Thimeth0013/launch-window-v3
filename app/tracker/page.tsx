@@ -54,7 +54,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
   })) as SatellitePosition[];
 
   return (
-    <div className="relative w-full h-screen bg-[#020810] overflow-hidden">
+    <div className="relative w-full h-dvh bg-[#020810] overflow-hidden">
       {/* Site-wide header — fixed, sits on top of the canvas */}
       <AppHeader />
 

@@ -8,6 +8,7 @@ import type {
 } from '@/app/lib/services/starshipService';
 import OptimizedImage from '@/components/ui/OptimizedImage';
 import StarshipTimeline from '@/components/sections/StarshipTimeline';
+import { useTapReveal } from '@/app/lib/hooks/useTapReveal';
 
 function extractSerialNum(str?: string) {
   if (!str) return 0;
@@ -286,7 +287,7 @@ function StreamCard({ stream }: { stream: StarshipStream }) {
       href={stream.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group relative block border-2 border-[#FF6B35]/30 hover:border-[#FF6B35] hover:shadow-[0_0_24px_rgba(255,107,53,0.18)] bg-black overflow-hidden transition-all"
+      className="group relative block border-2 border-[#FF6B35]/30 active:border-[#FF6B35] hover:border-[#FF6B35] hover:shadow-[0_0_24px_rgba(255,107,53,0.18)] bg-black overflow-hidden transition-all"
     >
       {stream.image && (
         <div className="relative aspect-video overflow-hidden">
@@ -324,18 +325,19 @@ function StreamCard({ stream }: { stream: StarshipStream }) {
 /* ------------------------------------------------------------------ */
 
 function VehicleCard({ vehicle }: { vehicle: StarshipVehicle }) {
+  const reveal = useTapReveal();
   const status = (vehicle.status?.name || '').toLowerCase();
   const isActive = status.includes('active') || status.includes('proven');
   const isDestroyed = status.includes('lost') || status.includes('destroyed') || status.includes('scrapped');
   const imageUrl = vehicle.image?.image_url;
 
   return (
-    <article className="group relative aspect-video overflow-hidden border border-white/5 bg-black">
+    <article {...reveal} className="group relative aspect-video overflow-hidden border border-white/5 bg-black">
       {imageUrl ? (
         <OptimizedImage
           src={imageUrl}
           alt={vehicle.serial_number || 'Booster'}
-          className="absolute inset-0 w-full h-full object-cover brightness-90 transition-transform duration-700 group-hover:scale-105"
+          className="absolute inset-0 w-full h-full object-cover brightness-90 transition-transform duration-700 group-hover:scale-105 group-data-[open=true]:scale-105"
         />
       ) : (
         <div className="absolute inset-0 bg-white/3" />
@@ -363,7 +365,7 @@ function VehicleCard({ vehicle }: { vehicle: StarshipVehicle }) {
       </div>
 
       {/* Title + summary — pinned to the bottom, fades out on hover */}
-      <div className="absolute inset-x-0 bottom-0 p-4 transition-opacity duration-300 group-hover:opacity-0">
+      <div className="absolute inset-x-0 bottom-0 p-4 transition-opacity duration-300 group-hover:opacity-0 group-data-[open=true]:opacity-0">
         <h3 className="text-lg md:text-xl font-black uppercase tracking-tight mb-1">
           {vehicle.serial_number || 'Unknown Booster'}
         </h3>
@@ -373,7 +375,7 @@ function VehicleCard({ vehicle }: { vehicle: StarshipVehicle }) {
       </div>
 
       {/* Stat table — pinned to the same bottom edge, fades in on hover */}
-      <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+      <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 group-hover:opacity-100 group-data-[open=true]:opacity-100 transition-opacity duration-300 delay-100">
         <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 font-mono">
           <Stat label="Flights" value={vehicle.flights ?? 0} />
           <Stat
@@ -394,18 +396,19 @@ function VehicleCard({ vehicle }: { vehicle: StarshipVehicle }) {
 /* ------------------------------------------------------------------ */
 
 function OrbiterCard({ orbiter }: { orbiter: StarshipOrbiter }) {
+  const reveal = useTapReveal();
   const status = (orbiter.status?.name || '').toLowerCase();
   const isActive = status.includes('active');
   const isLost = status.includes('lost') || status.includes('destroyed') || status.includes('retired');
   const imageUrl = orbiter.image?.image_url;
 
   return (
-    <article className="group relative aspect-video overflow-hidden border border-white/5 bg-black">
+    <article {...reveal} className="group relative aspect-video overflow-hidden border border-white/5 bg-black">
       {imageUrl ? (
         <OptimizedImage
           src={imageUrl}
           alt={orbiter.name || 'Ship'}
-          className="absolute inset-0 w-full h-full object-cover brightness-90 transition-transform duration-700 group-hover:scale-105"
+          className="absolute inset-0 w-full h-full object-cover brightness-90 transition-transform duration-700 group-hover:scale-105 group-data-[open=true]:scale-105"
         />
       ) : (
         <div className="absolute inset-0 bg-white/3" />
@@ -440,7 +443,7 @@ function OrbiterCard({ orbiter }: { orbiter: StarshipOrbiter }) {
       </div>
 
       {/* Title + summary — pinned to the bottom, fades out on hover */}
-      <div className="absolute inset-x-0 bottom-0 p-4 transition-opacity duration-300 group-hover:opacity-0">
+      <div className="absolute inset-x-0 bottom-0 p-4 transition-opacity duration-300 group-hover:opacity-0 group-data-[open=true]:opacity-0">
         <h3 className="text-lg md:text-xl font-black uppercase tracking-tight mb-1">
           {orbiter.name || orbiter.serial_number || 'Unknown Ship'}
         </h3>
@@ -450,7 +453,7 @@ function OrbiterCard({ orbiter }: { orbiter: StarshipOrbiter }) {
       </div>
 
       {/* Stat table — pinned to the same bottom edge, fades in on hover */}
-      <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+      <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 group-hover:opacity-100 group-data-[open=true]:opacity-100 transition-opacity duration-300 delay-100">
         <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 font-mono">
           <Stat label="Flights" value={orbiter.flights_count ?? 0} />
           <Stat label="In Space" value={formatDuration(orbiter.time_in_space)} />

@@ -6,6 +6,7 @@ import { ScrollTrigger } from 'gsap/dist/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { ChevronLeft, ChevronRight, Play, Info } from 'lucide-react';
 import OptimizedImage from '@/components/ui/OptimizedImage';
+import { useTapReveal } from '@/app/lib/hooks/useTapReveal';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -115,18 +116,26 @@ export default function StarshipTimeline({ items }: StarshipTimelineProps) {
     if (!cards.length) return;
 
     const st = scrollTriggerRef.current;
-    const scrolled = st ? window.scrollY - st.start : track.scrollLeft;
-
-    const targetLeft = direction > 0
-      ? cards.find((c) => c.offsetLeft > scrolled + 4)?.offsetLeft ?? cards[cards.length - 1].offsetLeft
-      : [...cards].reverse().find((c) => c.offsetLeft < scrolled - 4)?.offsetLeft ?? 0;
-
     if (st) {
+      const scrolled = window.scrollY - st.start;
+      const targetLeft = direction > 0
+        ? cards.find((c) => c.offsetLeft > scrolled + 4)?.offsetLeft ?? cards[cards.length - 1].offsetLeft
+        : [...cards].reverse().find((c) => c.offsetLeft < scrolled - 4)?.offsetLeft ?? 0;
       const target = Math.min(st.end, Math.max(st.start, st.start + targetLeft));
       window.scrollTo({ top: target, behavior: 'smooth' });
-    } else {
-      track.scrollTo({ left: targetLeft, behavior: 'smooth' });
+      return;
     }
+
+    // Unpinned (phones): the track's parent is what scrolls sideways.
+    const scroller = track.parentElement;
+    if (!scroller) return;
+    const base = scroller.getBoundingClientRect().left - scroller.scrollLeft;
+    const lefts = cards.map((c) => c.getBoundingClientRect().left - base);
+    const current = scroller.scrollLeft;
+    const targetLeft = direction > 0
+      ? lefts.find((l) => l > current + 4) ?? lefts[lefts.length - 1]
+      : [...lefts].reverse().find((l) => l < current - 4) ?? 0;
+    scroller.scrollTo({ left: targetLeft, behavior: 'smooth' });
   }, []);
 
   return (
@@ -165,7 +174,7 @@ export default function StarshipTimeline({ items }: StarshipTimelineProps) {
         </div>
       </div>
 
-      <div className="overflow-x-auto md:overflow-hidden pb-4 md:pb-0 -mb-4 md:mb-0">
+      <div className="overflow-x-auto overscroll-x-contain snap-x snap-mandatory md:snap-none md:overflow-hidden pb-4 md:pb-0 -mb-4 md:mb-0">
         <div ref={trackRef} className="flex items-stretch gap-5 md:gap-7 pr-6 md:pr-16 w-max">
           {entries.map(({ item, year, isNewYear }, i) => (
             <TimelineEventCard
@@ -181,7 +190,7 @@ export default function StarshipTimeline({ items }: StarshipTimelineProps) {
       </div>
 
       {/* Jump To — horizontal, sits below the track and stays in view for the whole pin */}
-      <nav className="mt-6 md:mt-8 flex items-center gap-2 overflow-x-auto md:flex-wrap">
+      <nav className="mt-6 md:mt-8 flex items-center gap-2 overflow-x-auto overscroll-x-contain md:flex-wrap">
         <span className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest mr-2 shrink-0">
           Jump To
         </span>
@@ -212,6 +221,7 @@ export default function StarshipTimeline({ items }: StarshipTimelineProps) {
 /* ------------------------------------------------------------------ */
 
 const TimelineEventCard = forwardRef<HTMLElement, { item: any }>(function TimelineEventCard({ item }, ref) {
+  const reveal = useTapReveal();
   const dt = item.date ? new Date(item.date) : null;
   const isLaunch = item._type === 'launch';
 
@@ -233,7 +243,7 @@ const TimelineEventCard = forwardRef<HTMLElement, { item: any }>(function Timeli
   const hasLinks = item.vid_urls?.length > 0 || item.info_urls?.length > 0 || item.info_url || item.vid_url;
 
   return (
-    <article ref={ref} className="group relative shrink-0 w-220 aspect-video overflow-hidden bg-black">
+    <article ref={ref} {...reveal} className="group relative shrink-0 w-[85vw] aspect-[4/5] snap-start sm:w-[28rem] sm:aspect-[4/3] md:w-220 md:aspect-video overflow-hidden bg-black">
       {imageUrl ? (
         <OptimizedImage
           src={imageUrl}
@@ -248,18 +258,18 @@ const TimelineEventCard = forwardRef<HTMLElement, { item: any }>(function Timeli
       <div className="absolute inset-0 bg-linear-to-t from-black via-black/50 to-black/10" />
 
       {/* Hover — fully darken so the description reads clearly */}
-      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-colors duration-500" />
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 group-data-[open=true]:bg-black/60 transition-colors duration-500" />
 
       <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
         {/* Description + links — collapsed to zero height until hover */}
-        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-out">
+        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] group-data-[open=true]:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-out">
           <div className="overflow-hidden pb-6 md:pb-4">
-            <p className="text-zinc-300 text-xs md:text-sm leading-relaxed line-clamp-16 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-150">
+            <p className="text-zinc-300 text-xs md:text-sm leading-relaxed line-clamp-16 opacity-0 group-hover:opacity-100 group-data-[open=true]:opacity-100 transition-opacity duration-300 delay-150">
               {description}
             </p>
 
             {hasLinks && (
-              <div className="flex flex-wrap items-center gap-3 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-150">
+              <div className="flex flex-wrap items-center gap-3 mt-4 opacity-0 group-hover:opacity-100 group-data-[open=true]:opacity-100 transition-opacity duration-300 delay-150">
                 {(item.vid_urls?.[0]?.url || item.vid_url) && (
                   <a
                     href={item.vid_urls?.[0]?.url || item.vid_url}

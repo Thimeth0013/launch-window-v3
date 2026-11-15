@@ -46,7 +46,7 @@ export default function AstronautDossier({ astronaut, role, isOpen, onClose }: A
   };
 
   return (
-    <div className="fixed inset-0 z-2000 flex items-center justify-center p-0 md:p-6 overflow-y-auto md:overflow-hidden">
+    <div className="fixed inset-0 z-2000 flex items-center justify-center p-0 md:p-6 overflow-y-auto overscroll-contain md:overflow-hidden">
       
       {/* Backdrop */}
       <div 
@@ -56,7 +56,7 @@ export default function AstronautDossier({ astronaut, role, isOpen, onClose }: A
 
       <button 
         onClick={onClose} 
-        className="fixed top-8 right-8 md:top-12 md:right-12 z-50 p-3 border border-white/10 hover:bg-[#FF6B35] transition-all group"
+        className="fixed top-[calc(2rem_+_env(safe-area-inset-top,0px))] right-[calc(2rem_+_env(safe-area-inset-right,0px))] md:top-12 md:right-12 z-50 p-3 border border-white/10 hover:bg-[#FF6B35] transition-all group"
       >
         <X size={20} className="text-[#FF6B35] group-hover:text-black transition-transform" />
       </button>
@@ -64,7 +64,7 @@ export default function AstronautDossier({ astronaut, role, isOpen, onClose }: A
       <div className="relative bg-[#050505] border-y md:border border-white/20 w-full max-w-6xl min-h-full md:min-h-0 md:h-[85vh] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,1)] animate-in zoom-in-95 duration-500 flex flex-col md:flex-row my-auto">
         
         {/* LEFT: Cinematic Hero Section */}
-        <div className="relative w-full md:w-[40%] h-screen md:h-full overflow-hidden shrink-0">
+        <div className="relative w-full md:w-[40%] h-svh md:h-full overflow-hidden shrink-0">
           {profileImg ? (
             <Image 
               src={profileImg} 
@@ -95,7 +95,7 @@ export default function AstronautDossier({ astronaut, role, isOpen, onClose }: A
 
         {/* RIGHT: Data Terminal Section */}
         <div className="flex-1 flex flex-col relative bg-[#050505]">
-          <div className="overflow-y-auto p-8 md:p-12 flex-1 custom-scrollbar">
+          <div className="overflow-y-auto overscroll-contain p-8 md:p-12 flex-1 custom-scrollbar">
             
             {/* Biography */}
             <div className="mb-8">

@@ -403,7 +403,7 @@ export function padChapter({ launch }: StoryContext): ChapterSpec | null {
             src={`https://maps.google.com/maps?q=${pad.latitude},${pad.longitude}&t=k&z=14&output=embed`}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            className="aspect-video w-full border-0 bg-zinc-950 sm:aspect-square"
+            className="aspect-video w-full border-0 bg-zinc-950 [@media(pointer:coarse)]:pointer-events-none sm:aspect-square"
           />
         </div>
       )}
@@ -893,7 +893,7 @@ export function newsChapter({ news }: StoryContext): ChapterSpec | null {
               href={a.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group block py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18BBF7]"
+              className="group block py-2.5 active:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18BBF7]"
             >
               <div className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
                 <span className="text-[#FF6B35]">{a.news_site}</span> · {formatDate(a.published_at)}

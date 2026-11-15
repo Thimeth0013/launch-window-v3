@@ -735,7 +735,7 @@ export default function SatelliteScene({
 
   /* ── JSX ──────────────────────────────────────────────────────────── */
   return (
-    <div className="relative w-full h-screen bg-[#020810] overflow-hidden">
+    <div className="relative w-full h-dvh bg-[#020810] overflow-hidden">
 
       {/* Three.js canvas */}
       <div ref={containerRef} className="absolute inset-0" />
@@ -743,8 +743,8 @@ export default function SatelliteScene({
       {/* Corner brackets — top ones pushed below the site header */}
       <div className="absolute top-16 left-3  w-3 h-3 border-t-2 border-l-2 border-white/30 pointer-events-none" />
       <div className="absolute top-16 right-3 w-3 h-3 border-t-2 border-r-2 border-white/30 pointer-events-none" />
-      <div className="absolute bottom-3 left-3  w-3 h-3 border-b-2 border-l-2 border-white/30 pointer-events-none" />
-      <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-white/30 pointer-events-none" />
+      <div className="absolute bottom-[calc(0.75rem_+_env(safe-area-inset-bottom,0px))] left-3  w-3 h-3 border-b-2 border-l-2 border-white/30 pointer-events-none" />
+      <div className="absolute bottom-[calc(0.75rem_+_env(safe-area-inset-bottom,0px))] right-3 w-3 h-3 border-b-2 border-r-2 border-white/30 pointer-events-none" />
 
       {/* Scene label — moved to bottom to avoid overlapping the site header */}
       {!trajectory && (
@@ -802,11 +802,11 @@ export default function SatelliteScene({
       {/* Telemetry readout */}
       <pre
         ref={readoutRef}
-        className="pointer-events-none absolute bottom-6 left-6 text-[11px] leading-relaxed font-mono text-white/85 whitespace-pre"
+        className="pointer-events-none absolute bottom-[calc(1.5rem_+_env(safe-area-inset-bottom,0px))] left-6 text-[11px] leading-relaxed font-mono text-white/85 whitespace-pre"
       />
 
       {/* Controls hint */}
-      <div className="pointer-events-none absolute bottom-6 right-6 text-[10px] font-mono text-white/40 tracking-[0.15em] text-right">
+      <div className="pointer-events-none absolute bottom-[calc(1.5rem_+_env(safe-area-inset-bottom,0px))] right-6 text-[10px] font-mono text-white/40 tracking-[0.15em] text-right">
         DRAG · ROTATE<br />
         SCROLL · ZOOM
       </div>

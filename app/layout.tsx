@@ -1,5 +1,5 @@
 // app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,19 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-mono',
   weight: ['400', '500', '700'],
 });
+
+// viewport-fit=cover paints under the notch / home indicator (fixed UI pads
+// itself back out with env(safe-area-inset-*)); resizes-content lets the
+// Android keyboard shrink the layout viewport. The site is dark regardless of
+// OS setting, so one dark theme colour is correct for both schemes.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
+  themeColor: '#000000',
+  colorScheme: 'dark',
+};
 
 export const metadata: Metadata = {
   title: "Launch Window",

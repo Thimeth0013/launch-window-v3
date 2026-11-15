@@ -70,7 +70,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
       <AppHeader />
 
       {/* 1. CINEMATIC HERO HEADER */}
-      <div className="relative h-screen w-full overflow-hidden group/hero">
+      <div className="relative h-svh w-full overflow-hidden group/hero">
 
         {launch.image?.image_url && (
           <>
@@ -147,7 +147,7 @@ export default async function LaunchDetailPage({ params }: LaunchDetailPageProps
 
         <a
           href="#chapter-watch"
-          className="fixed bottom-8 right-6 z-50 inline-flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/80 hover:bg-[#FF6B35]/40 border border-white/10"
+          className="fixed bottom-[calc(2rem_+_env(safe-area-inset-bottom,0px))] right-[calc(1.5rem_+_env(safe-area-inset-right,0px))] z-50 inline-flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-3 text-xs font-medium uppercase tracking-wider text-white/80 hover:bg-[#FF6B35]/40 active:bg-[#FF6B35]/40 border border-white/10"
           title="Go to broadcasts"
         >
           ↓ Live Broadcasts

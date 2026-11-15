@@ -581,7 +581,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       {/* ============================================================ */}
       <section
         data-hero-section
-        className="relative min-h-screen w-full overflow-hidden bg-[#050505]"
+        className="relative min-h-svh w-full overflow-hidden bg-[#050505]"
       >
         <div data-hero-image className="absolute inset-0 w-full h-full will-change-transform bg-[#050505]">
           {[1, 2, 3, 4, 5].map((num, i) => (
@@ -603,7 +603,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
 
         <div
           data-hero-content
-          className="relative z-10 min-h-[calc(100vh-64px)] flex items-center pt-12 md:pt-24 pb-16 px-4 md:px-8"
+          className="relative z-10 min-h-[calc(100svh-64px)] flex items-center pt-12 md:pt-24 pb-16 px-4 md:px-8"
         >
           <div className="w-full max-w-[1700px] mx-auto grid grid-cols-12 gap-x-6 lg:gap-x-12">
             <div className="col-span-12 lg:col-span-8 xl:col-span-8">
@@ -729,7 +729,7 @@ export default function LandingClientView({ apod, launch, article }: LandingClie
       {/* ============================================================ */}
       <section
         data-features-section
-        className="relative h-screen overflow-hidden z-10 w-full bg-black border-t border-black"
+        className="relative h-svh overflow-hidden z-10 w-full bg-black border-t border-black"
       >
         {/* Background image + gradient — fills the pinned section (z-0). */}
         <img
